@@ -360,6 +360,7 @@ table{border-collapse:collapse;width:100%;font-size:13.5px}
         <div class="cond"><span>距離</span><div class="seg" id="cD"></div></div>
         <div class="cond prx"><span>回り</span><div class="seg" id="cSide"></div></div>
         <div class="cond prx"><span>起伏</span><div class="seg" id="cTer"></div></div>
+        <div class="cond prx"><span>馬場</span><div class="seg" id="cGo"></div></div>
         <div class="cond prx"><span>相手のグレード</span><div class="seg" id="cGr"></div></div>
         <div class="cond prx"><span>相手の脚質</span><div class="seg" id="cMix"></div></div>
         <div class="cond prx"><span>あなたの馬番</span><div class="seg gates" id="cGate"></div></div>
@@ -392,7 +393,7 @@ table{border-collapse:collapse;width:100%;font-size:13.5px}
       <dl class="abil">
         <div><dt><i class="sw" style="background:#d9482b"></i>スピード</dt><dd>最高速度。追ったときにどこまで伸びるか。</dd></div>
         <div><dt><i class="sw" style="background:#1d6a3c"></i>スタミナ</dt><dd>バテずに走れる距離。バテた後の粘り、ゴール前の競り合い、控えたときの息の入りやすさ。</dd></div>
-        <div><dt><i class="sw" style="background:#8a5a1e"></i>根性</dt><dd>上り坂に強い（減速とスタミナの消耗を抑える）。追ったときや前が詰まった後の加速力。コーナーで外へ膨らみにくい。</dd></div>
+        <div><dt><i class="sw" style="background:#8a5a1e"></i>根性</dt><dd>上り坂に強い（減速とスタミナの消耗を抑える）。追ったときや前が詰まった後の加速力。コーナーで外へ膨らみにくい。稍重・重の馬場でも失速しにくい。</dd></div>
         <div><dt><i class="sw" style="background:#3b7dd8"></i>気性</dt><dd>スタートと折り合いの合わせやすさ、出だしの加速。低いとバーや輪の動きが不規則になり、レース中に掛かったり気を抜いたりする。</dd></div>
       </dl>
       <p class="note">スピードとスタミナ、根性と気性はそれぞれ合計100。片方を上げるともう片方が下がる。</p>
@@ -749,8 +750,12 @@ const BUDGET=200,MIN=10,MAX=100;
 const topOf=V=>16.9+V*.018;
 const justW=S=>.035+S*.0006, safeW=S=>.20+S*.0018;
 const winOf=K=>.06+Math.min(K,100)*.0012, tempoOf=K=>.90+Math.min(K,100)*.0004; // 気性：折り合いの判定幅とテンポの上がり方
-const slopeMul=(sl,P)=>sl>0?1+sl*37.5*(1-Math.min(P,100)/100):Math.max(.5,1+sl*8); // 上りの消費（係数1.5倍に強化）
-const slopeSpd=(sl,P)=>sl>0?1-sl*3.75*(1-Math.min(P,100)/100):1-sl*2; // 上りの減速（係数1.5倍に強化）
+// 馬場状態：spd=最高速の低下、drn=スタミナ消費の増加、slp=坂の影響倍率。根性(P)が高いほど影響が小さい（P10で1.2倍、50で1.0倍、90で0.8倍）
+const GOINGS={good:{n:'良',spd:0,drn:0,slp:1,tint:'#ffffff'},yay:{n:'稍重',spd:.01,drn:.05,slp:1.1,tint:'#cfd6bd'},hvy:{n:'重',spd:.02,drn:.1,slp:1.2,tint:'#a9b296'}};
+let GO=GOINGS.good;const goPf=P=>1.25-Math.min(P,100)/200;
+const rollGoing=()=>{const r=Math.random();return r<.6?'good':r<.85?'yay':'hvy'};
+const slopeMul=(sl,P)=>sl>0?1+sl*37.5*GO.slp*(1-Math.min(P,100)/100):Math.max(.5,1+sl*8); // 上りの消費（係数1.5倍に強化）
+const slopeSpd=(sl,P)=>sl>0?1-sl*3.75*GO.slp*(1-Math.min(P,100)/100):1-sl*2; // 上りの減速（係数1.5倍に強化）
 const accOf=P=>.45+Math.min(P,120)*.0105; // パワー＝加速力：10で0.56、50で0.98、90で1.40
 // グレード：相手の能力合計と1項目の上限だけが上がる（あなたは300pt・上限100から）
 const GRADES=[
@@ -805,7 +810,7 @@ function drawRadar(){const a=cfg.alloc;const c=60,r=46,n=STATS.length;const ax=S
   const rm=Math.max(100,...ax.map(q=>q[3]));s+=`<polygon points="${ax.map(([x,y,,v])=>`${c+x*r*v/rm},${c+y*r*v/rm}`).join(' ')}" fill="rgba(29,106,60,.28)" stroke="var(--turf)" stroke-width="2"/>`;
   s+=ax.map(([x,y,l])=>`<text x="${c+x*(r+6)}" y="${c+y*(r+6)+(y>.5?8:y<-.5?-2:3)}" font-size="9" font-weight="700" fill="var(--muted)" text-anchor="${x>.2?'start':x<-.2?'end':'middle'}">${l}</text>`).join('');
   $('#radar').innerHTML=s}
-function chipsHTML(){const c=C;return `<span class="chip turf">芝${c.D.toLocaleString()}m${c.straight?'（直線）':''}</span><span class="chip">${c.straight?'直線コース':c.side>0?'左回り':'右回り'}</span><span class="chip">16頭立て</span><span class="chip">高低差 ${c.range.toFixed(1)}m</span><span class="chip">1周 ${Math.round(c.L).toLocaleString()}m</span><span class="chip">直線 ${Math.round(c.sF)}m</span>`}
+function chipsHTML(){const c=C;return `<span class="chip turf">芝${c.D.toLocaleString()}m${c.straight?'（直線）':''}</span><span class="chip">${c.straight?'直線コース':c.side>0?'左回り':'右回り'}</span><span class="chip">馬場 ${GO.n}</span><span class="chip">16頭立て</span><span class="chip">高低差 ${c.range.toFixed(1)}m</span><span class="chip">1周 ${Math.round(c.L).toLocaleString()}m</span><span class="chip">直線 ${Math.round(c.sF)}m</span>`}
 function drawProfile(sel){const c=C;const W=360,X0=34,X1=350,Y0=96,Y1=18;const hmax=Math.max(2,Math.ceil(c.range+.5));const xs=p=>X0+(X1-X0)*p/c.D,ys=h=>Y0-(Y0-Y1)*h/hmax;
   const pts=[];let pk={p:0,h:-1};for(let p=0;p<=c.D;p+=Math.max(4,c.D/200)){const h=posAt(p).h;pts.push([xs(p).toFixed(1),ys(h).toFixed(1)]);if(h>pk.h)pk={p,h}}
   let s=`<path d="M${X0},${Y0} L${pts.map(p=>p.join(',')).join(' L')} L${X1},${Y0} Z" fill="var(--turf-soft)"/><path d="M${pts.map(p=>p.join(',')).join(' L')}" fill="none" stroke="var(--turf)" stroke-width="2"/>`;
@@ -829,8 +834,10 @@ const MIX={std:'逃げ逃げ先行先行先行先行先行差し差し差し差�
 const G={state:'title',mode:'bc',grade:0,horses:[],player:null,rt:0,gt:0,open:false,cam:0,ev:{},firstFin:null,orbit:0,endT:0,t1000:null,lastUp:-99,startQ:''};
 const GR=()=>GRADES[G.grade];
 // stamina used per metre: 1/30 at the horse's own no-push cruise speed on the flat
-const dpm=(h,v,sl)=>Math.pow(v/h.vc,4)/STAM_M*slopeMul(sl,h.P);
-function makeField(alloc,pn){
+const dpm=(h,v,sl)=>Math.pow(v/h.vc,4)/STAM_M*slopeMul(sl,h.P)*h.gd;
+function goingKey(){return G.mode==='ta'?'good':G.mode==='bc'?(bc&&bc.goings?bc.goings[bc.round]:'good'):(pc.going||'good')}
+function setGoing(k){GO=GOINGS[k]||GOINGS.good;turfMat.color.set(GO.tint)}
+function makeField(alloc,pn){setGoing(goingKey());
   const isBC=G.mode==='bc'&&bc&&bc.roster;const nums=isBC?shuffle(Array.from({length:16},(_,i)=>i+1)):null;if(isBC)pn=nums[0];
   const used=new Set([cfg.name]);const styles=shuffle(MIX[G.mode==='practice'?pc.mix:'std'].match(/.{2}/g));
   const coats=Object.keys(COATS);G.horses=[];
@@ -838,13 +845,13 @@ function makeField(alloc,pn){
     if(me){st={...alloc};style='自在';name=cfg.name;coat=cfg.coat}
     else if(isBC){const ri=nums.indexOf(n),e=bc.roster[ri];style=e.style;st=scaleStats(e.talent,G.grade);name=e.name;coat=e.coat}
     else{style=styles.pop();st=pairAlloc(GR().budget+Math.round(rand(-20,12)),style,GR().cap);name=randName(used);coat=coats[(rnd()*coats.length)|0]}
-    used.add(name);const top=topOf(st.V);
-    const h={n,frame:Math.ceil(n/2),name,coat,style,me,V:st.V,T:st.T,P:st.P,K:st.K,top,vc:top*CRUISE,stMax:st.T+STAM_BASE,rig:rigs[n-1],
+    used.add(name);const gf=goPf(st.P),top=topOf(st.V)*(1-GO.spd*gf);
+    const h={n,frame:Math.ceil(n/2),name,coat,style,me,V:st.V,T:st.T,P:st.P,K:st.K,top,vc:top*CRUISE,gd:1+GO.drn*gf,gs:1-GO.spd*gf,stMax:st.T+STAM_BASE,rig:rigs[n-1],
       pref:style==='追込'?rand(2.5,6):style==='差し'?rand(1.5,3.5):1.5,noise:rand(-1,1)*(.02-Math.min(st.K,100)*.00015),silk:isBC&&!me?bc.roster[nums.indexOf(n)].silk:SILKS[(n*7)%16],rid:isBC?nums.indexOf(n):-1};
     if(!me){h.base=STYLE_P[style].base;h.spurt=STYLE_P[style].spurt*rand(.9,1.1)}
     G.horses.push(h);if(me)G.player=h}
   const climb=C.range/4;
-  const rs=G.horses.map(h=>h.V*1+Math.min(h.stMax*STAM_M,C.D*1.15)/C.D*55+h.P*.25*(.4+climb)+h.T*.2+h.K*.4+(h.n<=4?3:0));const mx=Math.max(...rs);const ex=rs.map(r=>Math.exp((r-mx)/13));const tot=ex.reduce((a,b)=>a+b,0);
+  const rs=G.horses.map(h=>h.V*1+Math.min(h.stMax*STAM_M,C.D*1.15)/C.D*55+h.P*.25*(.4+climb)+h.T*.2+h.K*.4+(h.P-50)*GO.drn*2+(h.n<=4?3:0));const mx=Math.max(...rs);const ex=rs.map(r=>Math.exp((r-mx)/13));const tot=ex.reduce((a,b)=>a+b,0);
   G.horses.forEach((h,i)=>{h.odds=Math.min(299.9,Math.max(1.1,Math.round(.8/(ex[i]/tot)*10)/10))});
   [...G.horses].sort((a,b)=>a.odds-b.odds).forEach((h,i)=>h.pop=i+1);
   applyLook();resetRace()}
@@ -871,7 +878,7 @@ function makeRoster(){const used=new Set([cfg.name]);const styles=shuffle(MIX.st
   return ro}
 const scaleStats=(t,g)=>{const f=GRADES[g].budget/200,a={};KEYS.forEach(k=>a[k]=clamp(Math.round(t[k]*f),MIN,GRADES[g].cap));return a};
 function standings(){return bc.roster.map((e,i)=>({e,i,name:e.me?cfg.name:e.name})).sort((a,b)=>b.e.pts-a.e.pts||b.e.fin.filter(x=>x===1).length-a.e.fin.filter(x=>x===1).length||(a.e.fin[a.e.fin.length-1]||99)-(b.e.fin[b.e.fin.length-1]||99))}
-let pc={D:1800,side:1,terrain:'std',grade:1,mix:'std',gate:8};
+let pc={D:1800,side:1,terrain:'std',grade:1,mix:'std',gate:8,going:'good'};
 try{const q=JSON.parse(localStorage.getItem('asanagi-pc')||'null');if(q&&DISTS.includes(q.D))pc={...pc,...q}}catch(e){}
 const savePc=()=>{try{localStorage.setItem('asanagi-pc',JSON.stringify(pc))}catch(e){}};
 function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -894,7 +901,7 @@ DEMO.forEach((d,i)=>{const b=document.createElement('button');b.setAttribute('ar
 function demoGo(i,manual){demoI=i;$$('#demo .scene').forEach(sc=>sc.hidden=+sc.dataset.i!==i);$('#demoStep').textContent=`${i+1} / ${DEMO.length} ・ ${DEMO[i][0]}`;$('#demoCap').textContent=DEMO[i][1];
   $$('#demoDots button').forEach((b,k)=>b.setAttribute('aria-pressed',k===i));clearTimeout(demoT);demoT=setTimeout(()=>{if(G.state==='title')demoGo((demoI+1)%DEMO.length)},manual?8000:4000*(i===1?1:1))}
 function goTitle(){G.state='title';setTimeout(()=>demoGo(0),0);G.mode='bc';RNG=Math.random;$('#bestRec').textContent=best?`最高成績 ${best.rank}位・${best.pts}点`:'';show('#scrTitle')}
-function startBC(){G.mode='bc';RNG=Math.random;bc={round:0,dists:shuffle(BC_DISTS.slice()),alloc:null,roster:null,awarded:[]};openSetup()}
+function startBC(){G.mode='bc';RNG=Math.random;bc={round:0,dists:shuffle(BC_DISTS.slice()),goings:BC_DISTS.map(rollGoing),alloc:null,roster:null,awarded:[]};openSetup()}
 $('#mBC').onclick=startBC;
 $('#mPR').onclick=()=>{G.mode='practice';openSetup()};
 $('#mTA').onclick=()=>{G.mode='ta';openSetup()};
@@ -904,22 +911,23 @@ function openSetup(){G.state='setup';const isBC=G.mode==='bc';
   const isTA=G.mode==='ta';
   $('#setupEyebrow').textContent=isBC?'朝凪ブリーダーズカップ ・ 出走馬の登録':isTA?'タイムアタック ・ 1レース':'練習モード ・ 1レース';
   $('#setupTitle').textContent=isBC?'6戦のポイントで頂点へ':isTA?'タイムアタック':'練習レース';
-  $$('#secCond .prx').forEach(e=>e.hidden=isTA);$('#condNote').textContent=isTA?'選べるのは距離だけ。相手は常にGⅠ級なので、能力はスピード・スタミナ合計150、根性・気性合計100で配分できる。周回コースはコーナーがきつく、ゴール前に急坂がある（1000mは直線コース）。コースは距離ごとに固定、枠順は毎回抽選。':'';
+  $$('#secCond .prx').forEach(e=>e.hidden=isTA);$('#condNote').textContent=isTA?'選べるのは距離だけ。相手は常にGⅠ級なので、能力はスピード・スタミナ合計150、根性・気性合計100で配分できる。周回コースはコーナーがきつく、ゴール前に急坂がある（1000mは直線コース）。コースは距離ごとに固定、馬場は常に良、枠順は毎回抽選。':'';
   $('#toCard').textContent=isBC?'この馬で挑戦する':'出馬表へ';
   if(isBC)renderSched();else{renderCond();buildPracticeCourse()}
   cfg.alloc=isTA?{...allocTA}:{...allocStd};
   renderCoat();renderStats();show('#scrSetup')}
-function renderSched(){$('#sched').innerHTML=GRADES.map((g,i)=>`<li class="${bc.round===i?'now':bc.round>i?'done':''}"><span>第${i+1}戦</span><span><span class="gbadge" style="background:${g.col};margin:0;vertical-align:0">${g.badge}</span></span><span>${g.name}</span><span class="d">芝${bc.dists[i]}m</span></li>`).join('')}
+function renderSched(){$('#sched').innerHTML=GRADES.map((g,i)=>`<li class="${bc.round===i?'now':bc.round>i?'done':''}"><span>第${i+1}戦</span><span><span class="gbadge" style="background:${g.col};margin:0;vertical-align:0">${g.badge}</span></span><span>${g.name}</span><span class="d">芝${bc.dists[i]}m${bc.round>=i&&bc.goings?'・'+GOINGS[bc.goings[i]].n:''}</span></li>`).join('')}
 function seg(sel,opts,val,on,after){const el=$(sel);el.innerHTML='';opts.forEach(([v,t])=>{const b=document.createElement('button');b.textContent=t;b.setAttribute('aria-pressed',v===val);b.onclick=()=>{on(v);if(after)after();else{savePc();renderCond();buildPracticeCourse()}};el.appendChild(b)})}
 function renderCond(){
   if(G.mode==='ta'){seg('#cD',TA_DISTS.map(d=>[d,d===1000?'1000m直線':d+'m']),taD,v=>{taD=v;try{localStorage.setItem('asanagi-taD',String(v))}catch(e){}});return}
   seg('#cD',DISTS.map(d=>[d,d+'m']),pc.D,v=>pc.D=v);
   seg('#cSide',[[1,'左回り'],[-1,'右回り']],pc.side,v=>pc.side=v);
   seg('#cTer',[['flat','平坦'],['std','標準'],['hilly','起伏大']],pc.terrain,v=>pc.terrain=v);
+  seg('#cGo',Object.entries(GOINGS).map(([k,g])=>[k,g.n]),pc.going||'good',v=>pc.going=v);
   seg('#cGr',GRADES.map((g,i)=>[i,g.badge]),pc.grade,v=>pc.grade=v);
   seg('#cMix',[['std','バランス'],['front','逃げ・先行多め'],['back','差し・追込多め']],pc.mix,v=>pc.mix=v);
   seg('#cGate',Array.from({length:16},(_,i)=>[i+1,String(i+1)]),pc.gate,v=>pc.gate=v)}
-function buildPracticeCourse(){const c=cond();G.grade=c.grade;seed('course');C=genCourse({D:c.D,side:c.side,terrain:c.terrain,straight:G.mode==='ta'&&c.D===1000});seed('scene');buildCourse();
+function buildPracticeCourse(){setGoing(goingKey());const c=cond();G.grade=c.grade;seed('course');C=genCourse({D:c.D,side:c.side,terrain:c.terrain,straight:G.mode==='ta'&&c.D===1000});seed('scene');buildCourse();
   $$('#secPreview .courseChips').forEach(e=>e.innerHTML=chipsHTML());drawProfile('#profile');if(G.horses.length)resetRace()}
 $('#toCard').onclick=()=>{saveCfg();if(G.mode==='bc'){bc.alloc={...cfg.alloc};bc.roster=makeRoster();prepBC()}else prepPractice()};
 function prepBC(){G.grade=bc.round;RNG=Math.random;C=genCourse({D:bc.dists[bc.round]});buildCourse();makeField(bc.alloc,0);renderCard();G.state='card';show('#scrCard')}
@@ -989,7 +997,7 @@ function simRace(){resetRace();const p=G.player;const good=Math.random()<.35;ope
   const lim=C.D/8+40;while(G.rt<lim&&!G.horses.every(h=>h.finished)){botStep(p,C.D);step(.02)}
   G.horses.forEach(h=>{if(!h.finished){h.finished=true;h.ft=G.rt+(C.D-h.p)/Math.max(8,h.v)}});G.state='sim';return ranking()}
 function cpuName(used){const n=randName(used);used.add(n);return 'CPU・'+n.slice(0,8)}
-function simBC(name){bc={round:0,dists:shuffle(BC_DISTS.slice()),alloc:cpuAlloc(),roster:makeRoster(),awarded:[]};
+function simBC(name){bc={round:0,dists:shuffle(BC_DISTS.slice()),goings:BC_DISTS.map(rollGoing),alloc:cpuAlloc(),roster:makeRoster(),awarded:[]};
   for(let r=0;r<6;r++){bc.round=r;G.grade=r;C=genCourse({D:bc.dists[r]});makeField(bc.alloc,0);const ord=simRace();
     ord.forEach((h,i)=>{const e=bc.roster[h.rid];e.fin.push(i+1);if(i<5)e.pts+=PTS[i]});
     if(r<5)for(let k=0;k<GROW_PT;k++){const ks=KEYS.filter(x=>bc.alloc[x]<MAX);if(!ks.length)break;bc.alloc[ks[(Math.random()*ks.length)|0]]++}}
@@ -1116,7 +1124,7 @@ function step(dt){
     let t=h.top*q*slopeSpd(m.sl,h.P);
     // バテ：スタミナの借金が増えるほど徐々に失速。下限は根性で80〜88%（基準はスピード50の馬で、スピード値に左右されない）
     // 2段階：借金6（約240m）までは80〜88%へゆるやかに、その先は借金20（約800m）かけて61〜70%まで落ち続ける
-    if(h.st<=0&&!h.finished){const debt=-h.st,g=Math.min(h.T,100),f1=topOf(50)*(.78+g*.0008),f2=topOf(50)*(.58+g*.001); // 全体のバテを少し強化（下限−2%、1段階目を短く）
+    if(h.st<=0&&!h.finished){const debt=-h.st,g=Math.min(h.T,100),f1=topOf(50)*h.gs*(.78+g*.0008),f2=topOf(50)*h.gs*(.58+g*.001); // 全体のバテを少し強化（下限−2%、1段階目を短く）
       const v=debt<5?h.vc+(f1-h.vc)*debt/5:f1+(f2-f1)*clamp((debt-5)/18,0,1);t=Math.min(t,Math.min(v,h.vc)*slopeSpd(m.sl,h.P)*(h.me?1+.05*Math.max(0,h.lvl||0):1))} // バテても追えば上限を最大5%超えられる（代わりに借金が速く増える）
     if(!h.finished&&D-h.p<400){for(const o of hs){if(o!==h&&!o.finished&&Math.abs(o.p-h.p)<2.5&&Math.abs(o.d-h.d)<3){t*=1+Math.min(h.T,120)*.0005;break}}}
     h.target=t}
@@ -1155,7 +1163,7 @@ function ranking(){return [...G.horses].sort((a,b)=>{if(a.finished&&b.finished)r
 function margin(gap){const l=gap*16.5/2.4;if(l<.06)return 'ハナ';if(l<.16)return 'アタマ';if(l<.32)return 'クビ';if(l<.62)return '1/2';if(l<.87)return '3/4';
   const steps=[[1.12,'1'],[1.37,'1 1/4'],[1.62,'1 1/2'],[1.87,'1 3/4'],[2.25,'2'],[2.75,'2 1/2'],[3.25,'3'],[3.75,'3 1/2'],[4.5,'4'],[5.5,'5'],[6.5,'6'],[7.5,'7'],[8.5,'8'],[9.5,'9'],[10.5,'10']];for(const[a,b]of steps)if(l<a)return b;return '大差'}
 function showResult(){G.state='result';const r=ranking();const p=G.player;const rank=r.indexOf(p)+1;const g=GR();const isBC=G.mode==='bc';
-  $('#resHead').textContent=(isBC?`朝凪ブリーダーズカップ 第${bc.round+1}戦 ・ `:G.mode==='ta'?'タイムアタック ・ ':'練習 ・ ')+`${g.name}（${g.badge}） 芝${C.D}m ${C.side>0?'左':'右'}回り ・ 高低差${C.range.toFixed(1)}m`;
+  $('#resHead').textContent=(isBC?`朝凪ブリーダーズカップ 第${bc.round+1}戦 ・ `:G.mode==='ta'?'タイムアタック ・ ':'練習 ・ ')+`${g.name}（${g.badge}） 芝${C.D}m ${C.side>0?'左':'右'}回り ・ 馬場${GO.n} ・ 高低差${C.range.toFixed(1)}m`;
   $('#verdict').innerHTML=`${p.name} <span>${rank}着</span><span class="gbadge" style="background:${g.col}">${g.badge}</span>`;
   const hint=p.tiredAt!=null?`残り${Math.round(p.tiredAt)}m地点でスタミナが尽きた。`:p.st>p.stMax*.25?`スタミナを${Math.round(p.st/p.stMax*100)}%残してゴール。もっと早めに追えば届いた。`:'';
   let note,btns;
