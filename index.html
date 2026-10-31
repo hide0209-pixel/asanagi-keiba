@@ -768,12 +768,17 @@ const sw=k=>`<i class="sw" style="background:${SC[k]}"></i>`;
 const PRE=['アサナギ','ハルカゼ','ミカヅキ','シロガネ','ユキミ','ソラノ','ヤマビコ','カゼノ','ホシノ','ナギサ','コハク','ルリイロ','ツバキ','ヒバリ','トキワ','アカツキ','オボロ','イザヨイ'];
 const SUF=['ボルト','ステラ','カイザー','リーフ','ノヴァ','ブレイブ','オーラ','ジェット','フラッシュ','タイド','ブリッツ','ルーチェ','グローリー','ランナー','クラウン','アロー','ミラージュ','セイル','ハヤテ','ソング'];
 function randName(used){for(let t=0;t<200;t++){const n=PRE[(rnd()*PRE.length)|0]+SUF[(rnd()*SUF.length)|0];if(n.length<=9&&!(used&&used.has(n)))return n}return 'ナナシ'}
-const defAlloc=()=>({V:50,T:50,P:50,K:50});
+const PT=()=>{try{return G.mode==='ta'?[150,100]:[100,100]}catch(e){return[100,100]}}; // ペア合計（タイムアタックはスピード・スタミナ150）
+const defAlloc=()=>{const t=PT();return{V:t[0]/2,T:t[0]/2,P:t[1]/2,K:t[1]/2}};
+const okAlloc=(a,t)=>a&&[['V','T'],['P','K']].every(([x,y],i)=>a[x]>=10&&a[y]>=10&&a[x]+a[y]===t[i]);
+let allocStd={V:50,T:50,P:50,K:50},allocTA={V:75,T:75,P:50,K:50};
 const sum=a=>KEYS.reduce((t,k)=>t+a[k],0);
 let cfg={name:randName(),coat:'鹿毛',alloc:defAlloc()};
 try{const s=JSON.parse(localStorage.getItem('asanagi-cfg')||'null');if(s&&s.name){cfg.name=s.name;cfg.coat=COATS[s.coat]?s.coat:'鹿毛'}
-  const a=JSON.parse(localStorage.getItem('asanagi-alloc4')||'null');if(a&&KEYS.every(k=>a[k]>=10&&a[k]<=90)&&a.V+a.T===100&&a.P+a.K===100)cfg.alloc=a}catch(e){}
-const saveCfg=()=>{try{localStorage.setItem('asanagi-cfg',JSON.stringify({name:cfg.name,coat:cfg.coat}));localStorage.setItem('asanagi-alloc4',JSON.stringify(cfg.alloc))}catch(e){}};
+  const a=JSON.parse(localStorage.getItem('asanagi-alloc4')||'null');if(okAlloc(a,[100,100]))allocStd=a;
+  const b=JSON.parse(localStorage.getItem('asanagi-allocTA')||'null');if(okAlloc(b,[150,100]))allocTA=b}catch(e){}
+cfg.alloc={...allocStd};
+const saveCfg=()=>{try{localStorage.setItem('asanagi-cfg',JSON.stringify({name:cfg.name,coat:cfg.coat}));if(G.mode==='ta'){allocTA={...cfg.alloc};localStorage.setItem('asanagi-allocTA',JSON.stringify(allocTA))}else{allocStd={...cfg.alloc};localStorage.setItem('asanagi-alloc4',JSON.stringify(allocStd))}}catch(e){}};
 $('#hName').value=cfg.name;
 $('#hName').addEventListener('input',e=>{cfg.name=e.target.value.trim();validate()});
 $('#nameRnd').onclick=()=>{cfg.name=randName();$('#hName').value=cfg.name;validate()};
@@ -784,20 +789,20 @@ const statsBox=$('#stats');
 const PAIRS=[['V','T'],['P','K']]; // 各ペアは合計100、1項目10〜90
 PAIRS.forEach(([a,b])=>{const na=STATS.find(x=>x.k===a).name,nb=STATS.find(x=>x.k===b).name;const d=document.createElement('div');d.className='pair';
   d.innerHTML=`<div class="pl"><b>${sw(a)}${na}</b><output id="v${a}"></output></div><div class="pr"><output id="v${b}"></output><b>${nb}${sw(b)}</b></div><input type="range" id="r${a}" data-k="${a}" min="10" max="90" step="1" aria-label="${na}と${nb}の配分（右に動かすと${na}が増える）">`;statsBox.appendChild(d)});
-statsBox.addEventListener('input',e=>{const r=e.target.closest('input[type=range]');if(!r)return;const k=r.dataset.k;const pr=PAIRS.find(p=>p[0]===k);const v=clamp(+r.value,10,90);cfg.alloc[pr[0]]=v;cfg.alloc[pr[1]]=100-v;renderStats()});
+statsBox.addEventListener('input',e=>{const r=e.target.closest('input[type=range]');if(!r)return;const k=r.dataset.k;const pr=PAIRS.find(p=>p[0]===k);const t=PT()[PAIRS.indexOf(pr)];const v=clamp(+r.value,10,t-10);cfg.alloc[pr[0]]=v;cfg.alloc[pr[1]]=t-v;renderStats()});
 $('#even').onclick=()=>{cfg.alloc=defAlloc();renderStats()};
-$('#rnd').onclick=()=>{PAIRS.forEach(([a,b])=>{const v=10+Math.floor(Math.random()*81);cfg.alloc[a]=v;cfg.alloc[b]=100-v});renderStats()};
+$('#rnd').onclick=()=>{PAIRS.forEach(([a,b],i)=>{const t=PT()[i];const v=10+Math.floor(Math.random()*(t-19));cfg.alloc[a]=v;cfg.alloc[b]=t-v});renderStats()};
 function randomAlloc(budget,bias,step,mn=MIN,mx=MAX,spread=.6){const MIN=mn,MAX=mx;const a={};KEYS.forEach(k=>a[k]=MIN);let left=budget-KEYS.length*MIN;const w=KEYS.map((k,i)=>bias[i]*rand(1-spread,1+spread));
   let guard=0;while(left>=step&&guard++<900){let tot=0;KEYS.forEach((k,i)=>{if(a[k]+step<=MAX)tot+=w[i]});if(!tot)break;let r=rnd()*tot;for(let i=0;i<KEYS.length;i++){const k=KEYS[i];if(a[k]+step>MAX)continue;r-=w[i];if(r<=0){a[k]+=step;left-=step;break}}}return a}
 function renderStats(){const a=cfg.alloc;
-  STATS.forEach(s=>{$('#v'+s.k).textContent=a[s.k]});PAIRS.forEach(([x,y])=>{const r=$('#r'+x);if(+r.value!==a[x])r.value=a[x];const q=(a[x]-10)/80*100;r.style.background=`linear-gradient(90deg,${SC[x]} 0 ${q}%,${SC[y]} ${q}% 100%)`});
-  $('#remain').textContent='各ペア合計100';
-  $('#pool').innerHTML=KEYS.map(k=>`<span style="width:${a[k]/BUDGET*100}%;background:${SC[k]}"></span>`).join('');
+  STATS.forEach(s=>{$('#v'+s.k).textContent=a[s.k]});PAIRS.forEach(([x,y],i)=>{const t=PT()[i];const r=$('#r'+x);if(+r.max!==t-10)r.max=t-10;if(+r.value!==a[x])r.value=a[x];const q=(a[x]-10)/(t-20)*100;r.style.background=`linear-gradient(90deg,${SC[x]} 0 ${q}%,${SC[y]} ${q}% 100%)`});
+  const t=PT();$('#remain').textContent=t[0]===t[1]?'各ペア合計100':`スピード・スタミナ合計${t[0]} ／ 根性・気性合計${t[1]}`;
+  $('#pool').innerHTML=KEYS.map(k=>`<span style="width:${a[k]/(t[0]+t[1])*100}%;background:${SC[k]}"></span>`).join('');
   drawRadar();validate()}
 function validate(){$('#toCard').disabled=!(cfg.name.length>0)}
 function drawRadar(){const a=cfg.alloc;const c=60,r=46,n=STATS.length;const ax=STATS.map((s,i)=>{const ang=-Math.PI/2+i*2*Math.PI/n;return[Math.cos(ang),Math.sin(ang),s.name,a[s.k]]});
   let s='';for(const f of[1,.5])s+=`<polygon points="${ax.map(([x,y])=>`${c+x*r*f},${c+y*r*f}`).join(' ')}" fill="none" stroke="var(--line)"/>`;
-  s+=`<polygon points="${ax.map(([x,y,,v])=>`${c+x*r*v/100},${c+y*r*v/100}`).join(' ')}" fill="rgba(29,106,60,.28)" stroke="var(--turf)" stroke-width="2"/>`;
+  const rm=Math.max(100,...ax.map(q=>q[3]));s+=`<polygon points="${ax.map(([x,y,,v])=>`${c+x*r*v/rm},${c+y*r*v/rm}`).join(' ')}" fill="rgba(29,106,60,.28)" stroke="var(--turf)" stroke-width="2"/>`;
   s+=ax.map(([x,y,l])=>`<text x="${c+x*(r+6)}" y="${c+y*(r+6)+(y>.5?8:y<-.5?-2:3)}" font-size="9" font-weight="700" fill="var(--muted)" text-anchor="${x>.2?'start':x<-.2?'end':'middle'}">${l}</text>`).join('');
   $('#radar').innerHTML=s}
 function chipsHTML(){const c=C;return `<span class="chip turf">芝${c.D.toLocaleString()}m${c.straight?'（直線）':''}</span><span class="chip">${c.straight?'直線コース':c.side>0?'左回り':'右回り'}</span><span class="chip">16頭立て</span><span class="chip">高低差 ${c.range.toFixed(1)}m</span><span class="chip">1周 ${Math.round(c.L).toLocaleString()}m</span><span class="chip">直線 ${Math.round(c.sF)}m</span>`}
@@ -899,9 +904,10 @@ function openSetup(){G.state='setup';const isBC=G.mode==='bc';
   const isTA=G.mode==='ta';
   $('#setupEyebrow').textContent=isBC?'朝凪ブリーダーズカップ ・ 出走馬の登録':isTA?'タイムアタック ・ 1レース':'練習モード ・ 1レース';
   $('#setupTitle').textContent=isBC?'6戦のポイントで頂点へ':isTA?'タイムアタック':'練習レース';
-  $$('#secCond .prx').forEach(e=>e.hidden=isTA);$('#condNote').textContent=isTA?'選べるのは距離だけ。相手は常にGⅠ級。周回コースはコーナーがきつく、ゴール前に急坂がある（1000mは直線コース）。コースは距離ごとに固定、枠順は毎回抽選。':'';
+  $$('#secCond .prx').forEach(e=>e.hidden=isTA);$('#condNote').textContent=isTA?'選べるのは距離だけ。相手は常にGⅠ級なので、能力はスピード・スタミナ合計150、根性・気性合計100で配分できる。周回コースはコーナーがきつく、ゴール前に急坂がある（1000mは直線コース）。コースは距離ごとに固定、枠順は毎回抽選。':'';
   $('#toCard').textContent=isBC?'この馬で挑戦する':'出馬表へ';
   if(isBC)renderSched();else{renderCond();buildPracticeCourse()}
+  cfg.alloc=isTA?{...allocTA}:{...allocStd};
   renderCoat();renderStats();show('#scrSetup')}
 function renderSched(){$('#sched').innerHTML=GRADES.map((g,i)=>`<li class="${bc.round===i?'now':bc.round>i?'done':''}"><span>第${i+1}戦</span><span><span class="gbadge" style="background:${g.col};margin:0;vertical-align:0">${g.badge}</span></span><span>${g.name}</span><span class="d">芝${bc.dists[i]}m</span></li>`).join('')}
 function seg(sel,opts,val,on,after){const el=$(sel);el.innerHTML='';opts.forEach(([v,t])=>{const b=document.createElement('button');b.textContent=t;b.setAttribute('aria-pressed',v===val);b.onclick=()=>{on(v);if(after)after();else{savePc();renderCond();buildPracticeCourse()}};el.appendChild(b)})}
@@ -988,7 +994,7 @@ function simBC(name){bc={round:0,dists:shuffle(BC_DISTS.slice()),alloc:cpuAlloc(
     ord.forEach((h,i)=>{const e=bc.roster[h.rid];e.fin.push(i+1);if(i<5)e.pts+=PTS[i]});
     if(r<5)for(let k=0;k<GROW_PT;k++){const ks=KEYS.filter(x=>bc.alloc[x]<MAX);if(!ks.length)break;bc.alloc[ks[(Math.random()*ks.length)|0]]++}}
   const me=bc.roster[0];return {name,pts:me.pts,fin:me.fin.slice(0,6),wins:me.fin.filter(x=>x===1).length,V:bc.alloc.V,T:bc.alloc.T,P:bc.alloc.P,K:bc.alloc.K,ver:1}}
-function simTA(name,al){const a=al||cpuAlloc();G.taGate=1+((Math.random()*16)|0);const c=cond();G.grade=c.grade;seed('course');C=genCourse({D:c.D,side:c.side,terrain:c.terrain,straight:c.D===1000});seed('field');makeField(a,c.gate);seed('race');
+function simTA(name,al){const a=al||(()=>{const v=40+Math.floor(Math.random()*71);return{...cpuAlloc(),V:v,T:150-v}})();G.taGate=1+((Math.random()*16)|0);const c=cond();G.grade=c.grade;seed('course');C=genCourse({D:c.D,side:c.side,terrain:c.terrain,straight:c.D===1000});seed('field');makeField(a,c.gate);seed('race');
   const ord=simRace();RNG=Math.random;const p=G.player;return {name,time:Math.round(p.ft*100)/100,D:C.D,V:a.V,T:a.T,P:a.P,K:a.K,ver:1}}
 window.__simBC=simBC;window.__simTA=simTA;
 async function cpuFill(){const st=$('#cpuStat'),go=$('#cpuGo');go.disabled=true;const keepMode=G.mode,keepBc=bc,keepName=cfg.name;const used=new Set();let ok=0,ng=0;
