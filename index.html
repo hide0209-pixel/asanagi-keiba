@@ -468,6 +468,19 @@ table{border-collapse:collapse;width:100%;font-size:13.5px}
   </div>
 </div>
 
+<!-- CPU records (hidden: #cpu-fill) -->
+<div class="screen" id="scrCpu" hidden>
+  <div class="panel board">
+    <section>
+      <div class="eyebrow">管理用 ・ CPUの記録を作成</div>
+      <div class="verdict">CPU記録の登録</div>
+      <p class="note" id="cpuNote">CPU馬でブリーダーズカップ6戦を30回、練習モード（今選んでいる条件）を10回シミュレーションして、馬名の頭に「CPU・」を付けてランキングに登録する。書き込みは合計40件。</p>
+      <p class="note" id="cpuStat" style="color:#fff;font-size:14px"></p>
+    </section>
+    <section><div class="btns"><button class="btn" id="cpuCancel">やめる</button><button class="btn primary" id="cpuGo">開始する</button></div></section>
+  </div>
+</div>
+
 <!-- Final standings -->
 <div class="screen" id="scrFinal" hidden>
   <div class="panel board">
@@ -850,7 +863,7 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
 function hashStr(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
 // practice mode: every random draw comes from a seed made of the chosen conditions
 function seed(tag){RNG=G.mode==='practice'?mulberry(hashStr(tag+'|'+pc.D+'|'+pc.side+'|'+pc.terrain+(tag==='course'||tag==='scene'?'':'|'+pc.grade+'|'+pc.mix+'|'+pc.gate))):Math.random}
-function show(id){['#scrTitle','#scrSetup','#scrGrow','#scrCard','#scrResult','#scrFinal','#scrRank'].forEach(s=>$(s).hidden=s!==id);$('#hud').hidden=id!==null}
+function show(id){['#scrTitle','#scrSetup','#scrGrow','#scrCard','#scrResult','#scrFinal','#scrRank','#scrCpu'].forEach(s=>$(s).hidden=s!==id);$('#hud').hidden=id!==null}
 const DEMO=[['スタート','ゲートインするとバーの上をカーソルが動く。黄色でタップすると好スタート、緑で普通、赤は出遅れ。'],
   ['折り合い','縮んでくる輪が金色の帯に入った瞬間にタップ。成功中はスタミナ消費が減る。連続で成功するとテンポが上がる。'],
   ['追う・控える','奥へスワイプで追う（長いほど強く、だんだん弱まる）。手前へスワイプで控える（スタミナ節約、次に変えるまで続く）。'],
@@ -940,7 +953,35 @@ async function loadRank(){const note=$('#rkNote'),hd=$('#rkHead'),bd=$('#rkBody'
 $('#finReg').onclick=submitBC;
 $('#rkBack').onclick=()=>{show(rkBackTo)};
 $('#mRank').onclick=()=>openRank('bc',null,'#scrTitle');
-$('#mRank').hidden=!RANK.on;$('#finAgain').onclick=()=>startBC();
+$('#mRank').hidden=!RANK.on;
+
+/* ================= CPU記録（管理用。#cpu-fill を付けて開いたときだけ） ================= */
+function cpuAlloc(){const a={};[['V','T'],['P','K']].forEach(([x,y])=>{const v=25+Math.floor(Math.random()*51);a[x]=v;a[y]=100-v});return a}
+function botStep(p,D){if(!p.started||p.finished)return;const rem=D-p.p,spurt=350+p.T*4;
+  p.lvl=(p.st>0&&rem<spurt)||(p.st<=0&&rem<120)?1:(rem>spurt+400&&p.st<p.stMax*.5?-.4:0);
+  if(p.d>2.2&&free(p,-1,G.horses))p.laneT=Math.max(1.5,p.d-1)}
+function simRace(){resetRace();const p=G.player;const good=Math.random()<.35;openGate();p.delay=good?.04:.22;p.boost=good?1.15:1;G.rh.active=true;G.rh.save=.12;
+  const lim=C.D/8+40;while(G.rt<lim&&!G.horses.every(h=>h.finished)){botStep(p,C.D);step(.02)}
+  G.horses.forEach(h=>{if(!h.finished){h.finished=true;h.ft=G.rt+(C.D-h.p)/Math.max(8,h.v)}});G.state='sim';return ranking()}
+function cpuName(used){const n=randName(used);used.add(n);return 'CPU・'+n.slice(0,8)}
+function simBC(name){bc={round:0,dists:shuffle(BC_DISTS.slice()),alloc:cpuAlloc(),roster:makeRoster(),awarded:[]};
+  for(let r=0;r<6;r++){bc.round=r;G.grade=r;C=genCourse({D:bc.dists[r]});makeField(bc.alloc,0);const ord=simRace();
+    ord.forEach((h,i)=>{const e=bc.roster[h.rid];e.fin.push(i+1);if(i<5)e.pts+=PTS[i]});
+    if(r<5)for(let k=0;k<GROW_PT;k++){const ks=KEYS.filter(x=>bc.alloc[x]<MAX);if(!ks.length)break;bc.alloc[ks[(Math.random()*ks.length)|0]]++}}
+  const me=bc.roster[0];return {name,pts:me.pts,fin:me.fin.slice(0,6),wins:me.fin.filter(x=>x===1).length,V:bc.alloc.V,T:bc.alloc.T,P:bc.alloc.P,K:bc.alloc.K,ver:1}}
+function simTA(name){const a=cpuAlloc();G.grade=pc.grade;seed('course');C=genCourse({D:pc.D,side:pc.side,terrain:pc.terrain});seed('field');makeField(a,pc.gate);seed('race');
+  const ord=simRace();RNG=Math.random;const p=G.player;return {name,time:Math.round(p.ft*100)/100,D:pc.D,V:a.V,T:a.T,P:a.P,K:a.K,ver:1}}
+window.__simBC=simBC;window.__simTA=simTA;
+async function cpuFill(){const st=$('#cpuStat'),go=$('#cpuGo');go.disabled=true;const keepMode=G.mode,keepBc=bc,keepName=cfg.name;const used=new Set();let ok=0,ng=0;
+  const pause=()=>new Promise(r=>setTimeout(r,30));
+  try{for(let i=0;i<30;i++){st.textContent=`ブリーダーズカップ ${i+1}/30 をシミュレーション中…（登録成功 ${ok}・失敗 ${ng}）`;await pause();G.mode='bc';
+      const rec=simBC(cpuName(used));try{await fsCreate('bc',rec);ok++}catch(e){ng++}}
+    for(let i=0;i<10;i++){st.textContent=`タイムアタック ${i+1}/10 をシミュレーション中…（登録成功 ${ok}・失敗 ${ng}）`;await pause();G.mode='practice';
+      const rec=simTA(cpuName(used));try{await fsCreate(taCol(),rec);ok++}catch(e){ng++}}}
+  finally{G.mode=keepMode;bc=keepBc;cfg.name=keepName;RNG=Math.random;C=genCourse({});buildCourse();makeField({...cfg.alloc},1);G.state='cpu'}
+  st.textContent=`完了：登録成功 ${ok}件・失敗 ${ng}件。${ng?'失敗があるときは、Firestoreのルールかデータベースの設定を確認してほしい。':''}`;go.textContent='ランキングを見る';go.disabled=false;go.onclick=()=>openRank('bc',null,'#scrTitle')}
+$('#cpuGo').onclick=cpuFill;$('#cpuCancel').onclick=()=>{history.replaceState(null,'',location.pathname);goTitle()};
+if(location.hash==='#cpu-fill'&&RANK.on)setTimeout(()=>{G.state='cpu';show('#scrCpu')},0);$('#finAgain').onclick=()=>startBC();
 function prepPractice(){buildPracticeCourse();seed('field');makeField({...cfg.alloc},pc.gate);RNG=Math.random;renderCard();G.state='card';show('#scrCard')}
 // growth after each BC win
 let grow=null;
