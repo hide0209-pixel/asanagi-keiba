@@ -553,8 +553,8 @@ let C=null, raceNo=10;
 function genCourse(o={}){
   for(let tries=0;tries<200;tries++){
     const straight=!!o.straight,ter=o.terrain||'random';
-    // タイムアタック用：コーナーをきつく（R85〜92）。直線1000mは1300mの長い直線を持つ周回の一部を使う
-    const Ls=straight?1300:Math.round(rand(560,640)),R=straight?110:ter==='ta'?Math.round(rand(85,92)):Math.round(rand(85,125)),BOW=straight?0:Math.round(rand(0,38)),side=straight?1:(o.side||(rnd()<.5?1:-1)),D=o.D||DISTS[(rnd()*DISTS.length)|0];
+    // タイムアタック用：コーナーをきつく（R85〜92）。直線1000mは最終コーナーから延ばした引き込み線を使う
+    const Ls=straight?620:Math.round(rand(560,640)),R=straight?110:ter==='ta'?Math.round(rand(85,92)):Math.round(rand(85,125)),BOW=straight?0:Math.round(rand(0,38)),side=straight?1:(o.side||(rnd()<.5?1:-1)),D=o.D||DISTS[(rnd()*DISTS.length)|0];
     const raw=[];const st=.5,nT=Math.ceil(Math.PI*R/st);
     for(let x=-Ls/2;x<Ls/2;x+=st)raw.push([x,0]);
     for(let i=0;i<nT;i++){const a=Math.PI*i/nT;raw.push([Ls/2+R*Math.sin(a),-R+R*Math.cos(a)])}
@@ -564,11 +564,11 @@ function genCourse(o={}){
     const cum=[0];let L=0;for(let i=0;i<raw.length;i++){const a=raw[i],b=raw[(i+1)%raw.length];L+=Math.hypot(b[0]-a[0],b[1]-a[1]);cum.push(L)}
     const sB=Ls+Math.PI*R,BL=L-2*Math.PI*R-Ls;
     let sF=null,startS=null;
-    if(straight){sF=D+100;startS=100}
-    else for(let k=0;k<25;k++){const f=Math.min(rand(470,530),Ls-40); /* ゴールまでの直線は約500m */const s0=mod(f-D,L);if((s0>15&&s0<Ls-35)||(s0>sB+15&&s0<sB+BL-35)){sF=f;startS=s0;break}}
+    if(!straight)for(let k=0;k<25;k++){const f=Math.min(rand(470,530),Ls-40); /* ゴールまでの直線は約500m */const s0=mod(f-D,L);if((s0>15&&s0<Ls-35)||(s0>sB+15&&s0<sB+BL-35)){sF=f;startS=s0;break}}
     // 直線上にスタートを置けない距離は引き込み線（直線をコースの外へ延長した発走路）から。合流点は4コーナー出口(s=0)か2コーナー出口(s=sB)
     let chute=null;
-    if(sF==null){let f=Math.min(rand(470,530),Ls-40);
+    if(straight){sF=500;chute={J:0,len:D-500};startS=mod(-chute.len,L)} // 直線1000m：4コーナー出口から外へ延ばした500mの引き込み線＋最後の直線500m
+    else if(sF==null){let f=Math.min(rand(470,530),Ls-40);
       for(let k=0;k<12&&!chute;k++){if(k)f=Math.min(rand(470,530),Ls-40);
         for(const J of [0,sB]){const dJ=mod(f-J,L);for(let n=0;n<4&&!chute;n++){const Lc=D-dJ-n*L;if(Lc>=30&&Lc<=600)chute={J,len:Lc}}if(chute)break}}
       sF=f;startS=chute?mod(chute.J-chute.len,L):mod(f-D,L)}
@@ -810,7 +810,7 @@ function drawRadar(){const a=cfg.alloc;const c=60,r=46,n=STATS.length;const ax=S
   const rm=Math.max(100,...ax.map(q=>q[3]));s+=`<polygon points="${ax.map(([x,y,,v])=>`${c+x*r*v/rm},${c+y*r*v/rm}`).join(' ')}" fill="rgba(29,106,60,.28)" stroke="var(--turf)" stroke-width="2"/>`;
   s+=ax.map(([x,y,l])=>`<text x="${c+x*(r+6)}" y="${c+y*(r+6)+(y>.5?8:y<-.5?-2:3)}" font-size="9" font-weight="700" fill="var(--muted)" text-anchor="${x>.2?'start':x<-.2?'end':'middle'}">${l}</text>`).join('');
   $('#radar').innerHTML=s}
-function chipsHTML(){const c=C;return `<span class="chip turf">芝${c.D.toLocaleString()}m${c.straight?'（直線）':''}</span><span class="chip">${c.straight?'直線コース':c.side>0?'左回り':'右回り'}</span><span class="chip">馬場 ${GO.n}</span><span class="chip">16頭立て</span><span class="chip">高低差 ${c.range.toFixed(1)}m</span><span class="chip">1周 ${Math.round(c.L).toLocaleString()}m</span><span class="chip">直線 ${Math.round(c.sF)}m</span>`}
+function chipsHTML(){const c=C;return `<span class="chip turf">芝${c.D.toLocaleString()}m${c.straight?'（直線）':''}</span><span class="chip">${c.straight?'直線コース':c.side>0?'左回り':'右回り'}</span><span class="chip">馬場 ${GO.n}</span><span class="chip">16頭立て</span><span class="chip">高低差 ${c.range.toFixed(1)}m</span>${c.straight?'':`<span class="chip">1周 ${Math.round(c.L).toLocaleString()}m</span>`}<span class="chip">直線 ${c.straight?c.D:Math.round(c.sF)}m</span>`}
 function drawProfile(sel){const c=C;const W=360,X0=34,X1=350,Y0=96,Y1=18;const hmax=Math.max(2,Math.ceil(c.range+.5));const xs=p=>X0+(X1-X0)*p/c.D,ys=h=>Y0-(Y0-Y1)*h/hmax;
   const pts=[];let pk={p:0,h:-1};for(let p=0;p<=c.D;p+=Math.max(4,c.D/200)){const h=posAt(p).h;pts.push([xs(p).toFixed(1),ys(h).toFixed(1)]);if(h>pk.h)pk={p,h}}
   let s=`<path d="M${X0},${Y0} L${pts.map(p=>p.join(',')).join(' L')} L${X1},${Y0} Z" fill="var(--turf-soft)"/><path d="M${pts.map(p=>p.join(',')).join(' L')}" fill="none" stroke="var(--turf)" stroke-width="2"/>`;
