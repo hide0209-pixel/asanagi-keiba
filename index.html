@@ -334,7 +334,8 @@ table{border-collapse:collapse;width:100%;font-size:13.5px}
     </section>
     <section class="modes">
       <button class="mode" id="mBC"><b>朝凪ブリーダーズカップ</b><span>新馬からGⅠまで6戦のポイント制。1着10点〜5着1点。相手15頭は全戦同じで、グレードが上がるごとに強くなる。毎レース後に成長ポイント10を振り分ける。</span><small id="bestRec"></small></button>
-      <button class="mode" id="mPR"><b>練習モード</b><span>距離・コース・相手を選んで1レース。同じ条件なら毎回同じ展開になる。</span></button>
+      <button class="mode" id="mTA"><b>タイムアタック</b><span>距離を選んで1レースのタイムを競う。コースと相手は距離ごとに固定、枠順は毎回抽選。距離別のランキングあり。</span></button>
+      <button class="mode" id="mPR"><b>練習モード</b><span>距離・コース・相手・馬番を自由に選んで1レース。同じ条件なら毎回同じ展開になる（ランキングなし）。</span></button>
       <button class="btn" id="mRank" hidden>ランキングを見る</button>
     </section>
   </div>
@@ -354,13 +355,14 @@ table{border-collapse:collapse;width:100%;font-size:13.5px}
     </section>
     <section id="secCond">
       <h2>レース条件</h2>
+      <p class="note" id="condNote" style="margin:-4px 0 10px"></p>
       <div class="conds">
         <div class="cond"><span>距離</span><div class="seg" id="cD"></div></div>
-        <div class="cond"><span>回り</span><div class="seg" id="cSide"></div></div>
-        <div class="cond"><span>起伏</span><div class="seg" id="cTer"></div></div>
-        <div class="cond"><span>相手のグレード</span><div class="seg" id="cGr"></div></div>
-        <div class="cond"><span>相手の脚質</span><div class="seg" id="cMix"></div></div>
-        <div class="cond"><span>あなたの馬番</span><div class="seg gates" id="cGate"></div></div>
+        <div class="cond prx"><span>回り</span><div class="seg" id="cSide"></div></div>
+        <div class="cond prx"><span>起伏</span><div class="seg" id="cTer"></div></div>
+        <div class="cond prx"><span>相手のグレード</span><div class="seg" id="cGr"></div></div>
+        <div class="cond prx"><span>相手の脚質</span><div class="seg" id="cMix"></div></div>
+        <div class="cond prx"><span>あなたの馬番</span><div class="seg gates" id="cGate"></div></div>
       </div>
     </section>
     <section id="secPreview">
@@ -462,6 +464,7 @@ table{border-collapse:collapse;width:100%;font-size:13.5px}
       <div class="eyebrow">朝凪3D競馬 ・ みんなのランキング</div>
       <div class="verdict">ランキング</div>
       <div class="seg rktabs" id="rkTabs"></div>
+      <div class="seg rktabs" id="rkDist" hidden></div>
       <p class="note" id="rkNote"></p>
     </section>
     <section class="tblwrap"><table class="led"><thead id="rkHead"></thead><tbody id="rkBody"></tbody></table></section>
@@ -475,7 +478,7 @@ table{border-collapse:collapse;width:100%;font-size:13.5px}
     <section>
       <div class="eyebrow">管理用 ・ CPUの記録を作成</div>
       <div class="verdict">CPU記録の登録</div>
-      <p class="note" id="cpuNote">CPU馬でブリーダーズカップ6戦を30回、練習モード（今選んでいる条件）を10回シミュレーションして、馬名の頭に「CPU・」を付けてランキングに登録する。書き込みは合計40件。</p>
+      <p class="note" id="cpuNote">CPU馬でブリーダーズカップ6戦を30回、タイムアタックを8距離×5回シミュレーションして、馬名の頭に「CPU・」を付けてランキングに登録する。書き込みは合計70件。</p>
       <p class="note" id="cpuStat" style="color:#fff;font-size:14px"></p>
     </section>
     <section><div class="btns"><button class="btn" id="cpuCancel">やめる</button><button class="btn primary" id="cpuGo">開始する</button></div></section>
@@ -842,7 +845,7 @@ function raceTitleHTML(){const g=GR();return `${g.name}<span class="gbadge" styl
 function renderCard(){const tb=$('#cardBody');tb.innerHTML=G.horses.map(h=>`<tr class="${h.me?'me':''}"><td><span class="waku" style="background:${WAKU[h.frame-1]};color:${WAKU_FG[h.frame-1]}">${h.frame}</span></td><td class="n">${h.n}</td><td class="name">${h.name}${h.me?'（あなた）':''}</td><td>${h.style}</td><td class="o">${h.odds.toFixed(1)}</td><td class="o">${h.pop}</td></tr>`).join('');
   const p=G.player;let ser='';if(G.mode==='bc'&&bc.roster){const st=standings();const mi=st.findIndex(x=>x.e.me);ser=` シリーズ ${bc.roster[0].pts}点（${mi+1}位）・首位 ${st[0].e.pts}点。`}
   $('#myGate').textContent=`あなたは ${p.frame}枠${p.n}番・${p.pop}番人気。最大勾配 ${(C.maxSl*100).toFixed(1)}%。${ser}`;
-  $('#cardEyebrow').textContent=G.mode==='bc'?`朝凪ブリーダーズカップ 第${bc.round+1}戦 / 6 ・ 出馬表`:'練習モード ・ 出馬表';
+  $('#cardEyebrow').textContent=G.mode==='bc'?`朝凪ブリーダーズカップ 第${bc.round+1}戦 / 6 ・ 出馬表`:G.mode==='ta'?'タイムアタック ・ 出馬表（枠順は抽選）':'練習モード ・ 出馬表';
   $$('.raceTitle').forEach(e=>e.innerHTML=raceTitleHTML());$$('.courseChips').forEach(e=>e.innerHTML=chipsHTML());drawProfile('#cardProfile');
   $('#back').hidden=G.mode==='bc'}
 
@@ -863,7 +866,11 @@ const savePc=()=>{try{localStorage.setItem('asanagi-pc',JSON.stringify(pc))}catc
 function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 function hashStr(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
 // practice mode: every random draw comes from a seed made of the chosen conditions
-function seed(tag){RNG=G.mode==='practice'?mulberry(hashStr(tag+'|'+pc.D+'|'+pc.side+'|'+pc.terrain+(tag==='course'||tag==='scene'?'':'|'+pc.grade+'|'+pc.mix+'|'+pc.gate))):Math.random}
+// タイムアタック：距離以外は固定（左回り・標準の起伏・相手は条件クラス・バランス）、枠順は毎回抽選
+let taD=1800;try{const v=+localStorage.getItem('asanagi-taD');if(DISTS.includes(v))taD=v}catch(e){}
+const TA_FIX={side:1,terrain:'std',grade:1,mix:'std'};
+function cond(){return G.mode==='ta'?{D:taD,...TA_FIX,gate:G.taGate||8}:pc}
+function seed(tag){const c=cond();RNG=(G.mode==='practice'||G.mode==='ta')?mulberry(hashStr((G.mode==='ta'?'TA|':'')+tag+'|'+c.D+'|'+c.side+'|'+c.terrain+(tag==='course'||tag==='scene'?'':'|'+c.grade+'|'+c.mix+'|'+c.gate))):Math.random}
 function show(id){['#scrTitle','#scrSetup','#scrGrow','#scrCard','#scrResult','#scrFinal','#scrRank','#scrCpu'].forEach(s=>$(s).hidden=s!==id);$('#hud').hidden=id!==null}
 const DEMO=[['スタート','ゲートインするとバーの上をカーソルが動く。黄色でタップすると好スタート、緑で普通、赤は出遅れ。'],
   ['折り合い','縮んでくる輪が金色の帯に入った瞬間にタップ。成功中はスタミナ消費が減る。連続で成功するとテンポが上がる。'],
@@ -878,24 +885,28 @@ function goTitle(){G.state='title';setTimeout(()=>demoGo(0),0);G.mode='bc';RNG=M
 function startBC(){G.mode='bc';RNG=Math.random;bc={round:0,dists:shuffle(BC_DISTS.slice()),alloc:null,roster:null,awarded:[]};openSetup()}
 $('#mBC').onclick=startBC;
 $('#mPR').onclick=()=>{G.mode='practice';openSetup()};
+$('#mTA').onclick=()=>{G.mode='ta';openSetup()};
 $('#setupBack').onclick=goTitle;
 function openSetup(){G.state='setup';const isBC=G.mode==='bc';
   $('#secSchedule').hidden=!isBC;$('#secCond').hidden=isBC;$('#secPreview').hidden=isBC;
-  $('#setupEyebrow').textContent=isBC?'朝凪ブリーダーズカップ ・ 出走馬の登録':'練習モード ・ 1レース';
-  $('#setupTitle').textContent=isBC?'6戦のポイントで頂点へ':'練習レース';
+  const isTA=G.mode==='ta';
+  $('#setupEyebrow').textContent=isBC?'朝凪ブリーダーズカップ ・ 出走馬の登録':isTA?'タイムアタック ・ 1レース':'練習モード ・ 1レース';
+  $('#setupTitle').textContent=isBC?'6戦のポイントで頂点へ':isTA?'タイムアタック':'練習レース';
+  $$('#secCond .prx').forEach(e=>e.hidden=isTA);$('#condNote').textContent=isTA?'選べるのは距離だけ。コース（左回り・標準の起伏）と相手（条件クラス）は距離ごとに固定、枠順は毎回抽選。':'';
   $('#toCard').textContent=isBC?'この馬で挑戦する':'出馬表へ';
   if(isBC)renderSched();else{renderCond();buildPracticeCourse()}
   renderCoat();renderStats();show('#scrSetup')}
 function renderSched(){$('#sched').innerHTML=GRADES.map((g,i)=>`<li class="${bc.round===i?'now':bc.round>i?'done':''}"><span>第${i+1}戦</span><span><span class="gbadge" style="background:${g.col};margin:0;vertical-align:0">${g.badge}</span></span><span>${g.name}</span><span class="d">芝${bc.dists[i]}m</span></li>`).join('')}
-function seg(sel,opts,val,on){const el=$(sel);el.innerHTML='';opts.forEach(([v,t])=>{const b=document.createElement('button');b.textContent=t;b.setAttribute('aria-pressed',v===val);b.onclick=()=>{on(v);savePc();renderCond();buildPracticeCourse()};el.appendChild(b)})}
+function seg(sel,opts,val,on,after){const el=$(sel);el.innerHTML='';opts.forEach(([v,t])=>{const b=document.createElement('button');b.textContent=t;b.setAttribute('aria-pressed',v===val);b.onclick=()=>{on(v);if(after)after();else{savePc();renderCond();buildPracticeCourse()}};el.appendChild(b)})}
 function renderCond(){
+  if(G.mode==='ta'){seg('#cD',DISTS.map(d=>[d,d+'m']),taD,v=>{taD=v;try{localStorage.setItem('asanagi-taD',String(v))}catch(e){}});return}
   seg('#cD',DISTS.map(d=>[d,d+'m']),pc.D,v=>pc.D=v);
   seg('#cSide',[[1,'左回り'],[-1,'右回り']],pc.side,v=>pc.side=v);
   seg('#cTer',[['flat','平坦'],['std','標準'],['hilly','起伏大']],pc.terrain,v=>pc.terrain=v);
   seg('#cGr',GRADES.map((g,i)=>[i,g.badge]),pc.grade,v=>pc.grade=v);
   seg('#cMix',[['std','バランス'],['front','逃げ・先行多め'],['back','差し・追込多め']],pc.mix,v=>pc.mix=v);
   seg('#cGate',Array.from({length:16},(_,i)=>[i+1,String(i+1)]),pc.gate,v=>pc.gate=v)}
-function buildPracticeCourse(){G.grade=pc.grade;seed('course');C=genCourse({D:pc.D,side:pc.side,terrain:pc.terrain});seed('scene');buildCourse();
+function buildPracticeCourse(){const c=cond();G.grade=c.grade;seed('course');C=genCourse({D:c.D,side:c.side,terrain:c.terrain});seed('scene');buildCourse();
   $$('#secPreview .courseChips').forEach(e=>e.innerHTML=chipsHTML());drawProfile('#profile');if(G.horses.length)resetRace()}
 $('#toCard').onclick=()=>{saveCfg();if(G.mode==='bc'){bc.alloc={...cfg.alloc};bc.roster=makeRoster();prepBC()}else prepPractice()};
 function prepBC(){G.grade=bc.round;RNG=Math.random;C=genCourse({D:bc.dists[bc.round]});buildCourse();makeField(bc.alloc,0);renderCard();G.state='card';show('#scrCard')}
@@ -923,8 +934,8 @@ async function fsCreate(col,data){const id=rid();const body={writes:[{update:{na
 async function fsTop(col,field,dir,limit){const body={structuredQuery:{from:[{collectionId:col}],orderBy:[{field:{fieldPath:field},direction:dir}],limit}};
   const r=await fetch(`${RANK.base}:runQuery?key=${RANK.key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error('HTTP '+r.status);
   return (await r.json()).filter(x=>x.document).map(x=>{const o={id:x.document.name.split('/').pop()};for(const[k,v]of Object.entries(x.document.fields||{}))o[k]=fsGet(v);return o})}
-const taCol=()=>`ta_${pc.D}_${pc.side>0?'L':'R'}_${pc.terrain}_${pc.grade}_${pc.mix}_${pc.gate}`;
-const taLabel=()=>`芝${pc.D}m・${pc.side>0?'左':'右'}回り・${{flat:'平坦',std:'標準',hilly:'起伏大'}[pc.terrain]}・相手${GRADES[pc.grade].badge}・${{std:'バランス',front:'先行多め',back:'差し多め'}[pc.mix]}・${pc.gate}番`;
+let rkD=1800;const taCol=D=>`ta_${D}`;
+const taLabel=D=>`芝${D}m・左回り・標準の起伏・相手${GRADES[TA_FIX.grade].badge}`;
 function nameOk(n){if(!n||n.length>9)return '馬名は1〜9文字で登録できる。';const l=n.toLowerCase();if(NG.some(w=>l.includes(w)))return 'この馬名は登録できない。';return ''}
 function cooldown(){try{const t=+localStorage.getItem('asanagi-rank-last')||0;return Math.max(0,30-Math.floor((Date.now()-t)/1000))}catch(e){return 0}}
 function markSent(){try{localStorage.setItem('asanagi-rank-last',String(Date.now()))}catch(e){}}
@@ -934,11 +945,11 @@ async function submitBC(){const btn=$('#finReg');const err=nameOk(cfg.name);if(e
   catch(e){btn.disabled=false;btn.textContent='登録できなかった（もう一度押す）'}}
 async function submitTA(e){const btn=e&&e.currentTarget;const p=G.player;const err=nameOk(cfg.name);if(err){if(btn)btn.textContent=err;return}const cd=cooldown();if(cd){if(btn)btn.textContent=`${cd}秒後に登録できる`;return}
   if(btn){btn.disabled=true;btn.textContent='登録中…'}
-  try{const id=await fsCreate(taCol(),{name:cfg.name,time:Math.round(p.ft*100)/100,D:pc.D,V:p.V,T:p.T,P:p.P,K:p.K,ver:1});markSent();if(btn)btn.textContent='登録した';openRank('ta',id,'#scrResult')}
+  try{const id=await fsCreate(taCol(C.D),{name:cfg.name,time:Math.round(p.ft*100)/100,D:C.D,V:p.V,T:p.T,P:p.P,K:p.K,ver:1});markSent();if(btn)btn.textContent='登録した';rkD=C.D;openRank('ta',id,'#scrResult')}
   catch(e2){if(btn){btn.disabled=false;btn.textContent='登録できなかった（もう一度押す）'}}}
 let rkBackTo='#scrTitle',rkTab='bc',rkHi=null;
 function openRank(tab,hi,back){rkTab=tab||'bc';rkHi=hi||null;if(back)rkBackTo=back;show('#scrRank');renderRankTabs();loadRank()}
-function renderRankTabs(){const el=$('#rkTabs');el.innerHTML='';[['bc','ブリーダーズカップ'],['ta','タイムアタック']].forEach(([k,t])=>{const b=document.createElement('button');b.textContent=t;b.setAttribute('aria-pressed',k===rkTab);b.onclick=()=>{rkTab=k;rkHi=null;renderRankTabs();loadRank()};el.appendChild(b)})}
+function renderRankTabs(){const dd=$('#rkDist');dd.hidden=rkTab!=='ta';dd.innerHTML='';if(rkTab==='ta')DISTS.forEach(D=>{const b=document.createElement('button');b.textContent=D+'m';b.setAttribute('aria-pressed',D===rkD);b.onclick=()=>{rkD=D;rkHi=null;renderRankTabs();loadRank()};dd.appendChild(b)});const el=$('#rkTabs');el.innerHTML='';[['bc','ブリーダーズカップ'],['ta','タイムアタック']].forEach(([k,t])=>{const b=document.createElement('button');b.textContent=t;b.setAttribute('aria-pressed',k===rkTab);b.onclick=()=>{rkTab=k;rkHi=null;renderRankTabs();loadRank()};el.appendChild(b)})}
 const fmtDate=t=>{if(!t)return '';const d=new Date(t);return `${d.getMonth()+1}/${d.getDate()}`};
 async function loadRank(){const note=$('#rkNote'),hd=$('#rkHead'),bd=$('#rkBody');bd.innerHTML='';note.textContent='読み込み中…';
   try{if(rkTab==='bc'){const rows=(await fsTop('bc','pts','DESCENDING',100)).sort((a,b)=>b.pts-a.pts||b.wins-a.wins||String(a.at).localeCompare(String(b.at))).slice(0,50);
@@ -946,14 +957,14 @@ async function loadRank(){const note=$('#rkNote'),hd=$('#rkHead'),bd=$('#rkBody'
       hd.innerHTML='<tr><th>順位</th><th>馬名</th><th>合計</th><th>各戦</th><th>能力 V/T/根/気</th><th>日付</th></tr>';
       bd.innerHTML=rows.map((r,i)=>`<tr class="${r.id===rkHi?'me':''}"><td class="pos">${i+1}</td><td class="nm"></td><td>${r.pts}</td><td>${(r.fin||[]).join('-')}</td><td>${r.V}/${r.T}/${r.P}/${r.K}</td><td class="dt">${fmtDate(r.at)}</td></tr>`).join('');
       [...bd.querySelectorAll('td.nm')].forEach((td,i)=>td.textContent=rows[i].name);if(!rows.length)note.textContent='まだ登録がない。6戦を走り切って最初の登録者になろう。'}
-    else{const rows=await fsTop(taCol(),'time','ASCENDING',50);note.textContent=`条件：${taLabel()}（練習モードで選んだ条件。条件を変えると別のランキング）`;
+    else{const rows=await fsTop(taCol(rkD),'time','ASCENDING',50);note.textContent=`${taLabel(rkD)}。タイムが速い順（タイムアタックモードの記録）`;
       hd.innerHTML='<tr><th>順位</th><th>馬名</th><th>タイム</th><th>能力 V/T/根/気</th><th>日付</th></tr>';
       bd.innerHTML=rows.map((r,i)=>`<tr class="${r.id===rkHi?'me':''}"><td class="pos">${i+1}</td><td class="nm"></td><td>${fmtT(r.time)}</td><td>${r.V}/${r.T}/${r.P}/${r.K}</td><td class="dt">${fmtDate(r.at)}</td></tr>`).join('');
-      [...bd.querySelectorAll('td.nm')].forEach((td,i)=>td.textContent=rows[i].name);if(!rows.length)note.textContent=`条件：${taLabel()}。まだ登録がない。`}}
+      [...bd.querySelectorAll('td.nm')].forEach((td,i)=>td.textContent=rows[i].name);if(!rows.length)note.textContent=`${taLabel(rkD)}。まだ登録がない。`}}
   catch(e){note.textContent='ランキングを読み込めなかった。通信状況を確認して、もう一度開いてほしい。'}}
 $('#finReg').onclick=submitBC;
 $('#rkBack').onclick=()=>{show(rkBackTo)};
-$('#mRank').onclick=()=>openRank('bc',null,'#scrTitle');
+$('#mRank').onclick=()=>{rkD=taD;openRank('bc',null,'#scrTitle')};
 $('#mRank').hidden=!RANK.on;
 
 /* ================= CPU記録（管理用。#cpu-fill を付けて開いたときだけ） ================= */
@@ -970,20 +981,20 @@ function simBC(name){bc={round:0,dists:shuffle(BC_DISTS.slice()),alloc:cpuAlloc(
     ord.forEach((h,i)=>{const e=bc.roster[h.rid];e.fin.push(i+1);if(i<5)e.pts+=PTS[i]});
     if(r<5)for(let k=0;k<GROW_PT;k++){const ks=KEYS.filter(x=>bc.alloc[x]<MAX);if(!ks.length)break;bc.alloc[ks[(Math.random()*ks.length)|0]]++}}
   const me=bc.roster[0];return {name,pts:me.pts,fin:me.fin.slice(0,6),wins:me.fin.filter(x=>x===1).length,V:bc.alloc.V,T:bc.alloc.T,P:bc.alloc.P,K:bc.alloc.K,ver:1}}
-function simTA(name){const a=cpuAlloc();G.grade=pc.grade;seed('course');C=genCourse({D:pc.D,side:pc.side,terrain:pc.terrain});seed('field');makeField(a,pc.gate);seed('race');
-  const ord=simRace();RNG=Math.random;const p=G.player;return {name,time:Math.round(p.ft*100)/100,D:pc.D,V:a.V,T:a.T,P:a.P,K:a.K,ver:1}}
+function simTA(name){const a=cpuAlloc();G.taGate=1+((Math.random()*16)|0);const c=cond();G.grade=c.grade;seed('course');C=genCourse({D:c.D,side:c.side,terrain:c.terrain});seed('field');makeField(a,c.gate);seed('race');
+  const ord=simRace();RNG=Math.random;const p=G.player;return {name,time:Math.round(p.ft*100)/100,D:C.D,V:a.V,T:a.T,P:a.P,K:a.K,ver:1}}
 window.__simBC=simBC;window.__simTA=simTA;
 async function cpuFill(){const st=$('#cpuStat'),go=$('#cpuGo');go.disabled=true;const keepMode=G.mode,keepBc=bc,keepName=cfg.name;const used=new Set();let ok=0,ng=0;
   const pause=()=>new Promise(r=>setTimeout(r,30));
   try{for(let i=0;i<30;i++){st.textContent=`ブリーダーズカップ ${i+1}/30 をシミュレーション中…（登録成功 ${ok}・失敗 ${ng}）`;await pause();G.mode='bc';
       const rec=simBC(cpuName(used));try{await fsCreate('bc',rec);ok++}catch(e){ng++}}
-    for(let i=0;i<10;i++){st.textContent=`タイムアタック ${i+1}/10 をシミュレーション中…（登録成功 ${ok}・失敗 ${ng}）`;await pause();G.mode='practice';
-      const rec=simTA(cpuName(used));try{await fsCreate(taCol(),rec);ok++}catch(e){ng++}}}
+    const keepD=taD;let n=0;for(const D of DISTS)for(let i=0;i<5;i++){n++;st.textContent=`タイムアタック ${n}/40（芝${D}m）をシミュレーション中…（登録成功 ${ok}・失敗 ${ng}）`;await pause();G.mode='ta';taD=D;
+      const rec=simTA(cpuName(used));try{await fsCreate(taCol(D),rec);ok++}catch(e){ng++}}taD=keepD;}
   finally{G.mode=keepMode;bc=keepBc;cfg.name=keepName;RNG=Math.random;C=genCourse({});buildCourse();makeField({...cfg.alloc},1);G.state='cpu'}
   st.textContent=`完了：登録成功 ${ok}件・失敗 ${ng}件。${ng?'失敗があるときは、Firestoreのルールかデータベースの設定を確認してほしい。':''}`;go.textContent='ランキングを見る';go.disabled=false;go.onclick=()=>openRank('bc',null,'#scrTitle')}
 $('#cpuGo').onclick=cpuFill;$('#cpuCancel').onclick=()=>{history.replaceState(null,'',location.pathname);goTitle()};
 if(location.hash==='#cpu-fill'&&RANK.on)setTimeout(()=>{G.state='cpu';show('#scrCpu')},0);$('#finAgain').onclick=()=>startBC();
-function prepPractice(){buildPracticeCourse();seed('field');makeField({...cfg.alloc},pc.gate);RNG=Math.random;renderCard();G.state='card';show('#scrCard')}
+function prepPractice(){if(G.mode==='ta')G.taGate=1+((Math.random()*16)|0);buildPracticeCourse();seed('field');makeField({...cfg.alloc},cond().gate);RNG=Math.random;renderCard();G.state='card';show('#scrCard')}
 // growth after each BC win
 let grow=null;
 const GROW_PT=10;const growOf=()=>GROW_PT; // 成長は着順に関係なく一律10
@@ -1131,7 +1142,7 @@ function ranking(){return [...G.horses].sort((a,b)=>{if(a.finished&&b.finished)r
 function margin(gap){const l=gap*16.5/2.4;if(l<.06)return 'ハナ';if(l<.16)return 'アタマ';if(l<.32)return 'クビ';if(l<.62)return '1/2';if(l<.87)return '3/4';
   const steps=[[1.12,'1'],[1.37,'1 1/4'],[1.62,'1 1/2'],[1.87,'1 3/4'],[2.25,'2'],[2.75,'2 1/2'],[3.25,'3'],[3.75,'3 1/2'],[4.5,'4'],[5.5,'5'],[6.5,'6'],[7.5,'7'],[8.5,'8'],[9.5,'9'],[10.5,'10']];for(const[a,b]of steps)if(l<a)return b;return '大差'}
 function showResult(){G.state='result';const r=ranking();const p=G.player;const rank=r.indexOf(p)+1;const g=GR();const isBC=G.mode==='bc';
-  $('#resHead').textContent=(isBC?`朝凪ブリーダーズカップ 第${bc.round+1}戦 ・ `:'練習 ・ ')+`${g.name}（${g.badge}） 芝${C.D}m ${C.side>0?'左':'右'}回り ・ 高低差${C.range.toFixed(1)}m`;
+  $('#resHead').textContent=(isBC?`朝凪ブリーダーズカップ 第${bc.round+1}戦 ・ `:G.mode==='ta'?'タイムアタック ・ ':'練習 ・ ')+`${g.name}（${g.badge}） 芝${C.D}m ${C.side>0?'左':'右'}回り ・ 高低差${C.range.toFixed(1)}m`;
   $('#verdict').innerHTML=`${p.name} <span>${rank}着</span><span class="gbadge" style="background:${g.col}">${g.badge}</span>`;
   const hint=p.tiredAt!=null?`残り${Math.round(p.tiredAt)}m地点でスタミナが尽きた。`:p.st>p.stMax*.25?`スタミナを${Math.round(p.st/p.stMax*100)}%残してゴール。もっと早めに追えば届いた。`:'';
   let note,btns;
@@ -1143,7 +1154,7 @@ function showResult(){G.state='result';const r=ranking();const p=G.player;const 
       if(!best||mi<best.rank||(mi===best.rank&&mp>best.pts)){best={rank:mi,pts:mp};saveBest()}
       btns=[['累計結果発表へ',showFinal,1]]}
     $('#standBody').innerHTML=st.map((x,k)=>`<tr class="${x.e.me?'me':''}"><td class="pos">${k+1}</td><td class="nm">${x.name}</td><td>${x.e.pts}</td><td>${x.e.fin.join('-')}</td></tr>`).join('')}
-  else{note=rank===1?'1着。':(hint||'能力の配分や追い出しのタイミングを変えて試してみよう。');btns=[['タイトルへ',goTitle,0],['条件を変える',openSetup,0],['同じ条件でもう一度',prepPractice,1]];if(RANK.on)btns.unshift(['タイムを登録',submitTA,0])}
+  else{note=rank===1?'1着。':(hint||'能力の配分や追い出しのタイミングを変えて試してみよう。');if(G.mode==='ta'){btns=[['タイトルへ',goTitle,0],['距離を変える',openSetup,0],['もう一度（枠順は再抽選）',prepPractice,1]];if(RANK.on)btns.unshift(['タイムを登録',submitTA,0])}else btns=[['タイトルへ',goTitle,0],['条件を変える',openSetup,0],['同じ条件でもう一度',prepPractice,1]]}
   $('#verdictNote').textContent=note;$('#standSec').hidden=!(isBC&&bc.round<5);
   const best3=Math.min(...r.map(h=>h.ft-h.t3));const SQ={just:'好スタート',safe:'普通',late:'出遅れ'};
   $('#facts').innerHTML=`<div>勝ちタイム<b>${fmtT(r[0].ft)}</b></div>${G.t1000&&C.D>=1400?`<div>前半1000m<b>${fmtT(G.t1000)}</b></div>`:''}<div>あなたの上がり3F<b>${(p.ft-p.t3).toFixed(1)}</b></div><div>スタート<b>${SQ[G.startQ]||'-'}</b></div><div>単勝<b>${p.odds.toFixed(1)}</b></div>`;
