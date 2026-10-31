@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function d() { return request.resource.data; }
+    function nameOk() { return d().name is string && d().name.size() >= 1 && d().name.size() <= 12; }
+    function statOk(x) { return x is int && x >= 10 && x <= 150; }
+    function statsOk() { return statOk(d().V) && statOk(d().T) && statOk(d().P) && statOk(d().K); }
+    function finOk(x) { return x is int && x >= 1 && x <= 16; }
+    function pt(x) { return x == 1 ? 10 : (x == 2 ? 7 : (x == 3 ? 5 : (x == 4 ? 3 : (x == 5 ? 1 : 0)))); }
+    function win(x) { return x == 1 ? 1 : 0; }
+
+    // 朝凪ブリーダーズカップ：6戦の着順から合計点と1着回数を検算する。書き換え・削除は不可
+    match /bc/{id} {
+      allow read: if true;
+      allow create: if d().keys().hasOnly(['name', 'pts', 'fin', 'wins', 'V', 'T', 'P', 'K', 'at', 'ver'])
+        && d().keys().hasAll(['name', 'pts', 'fin', 'wins', 'V', 'T', 'P', 'K', 'at'])
+        && nameOk() && statsOk()
+        && d().fin is list && d().fin.size() == 6
+        && finOk(d().fin[0]) && finOk(d().fin[1]) && finOk(d().fin[2])
+        && finOk(d().fin[3]) && finOk(d().fin[4]) && finOk(d().fin[5])
+        && d().pts == pt(d().fin[0]) + pt(d().fin[1]) + pt(d().fin[2]) + pt(d().fin[3]) + pt(d().fin[4]) + pt(d().fin[5])
+        && d().wins == win(d().fin[0]) + win(d().fin[1]) + win(d().fin[2]) + win(d().fin[3]) + win(d().fin[4]) + win(d().fin[5])
+        && d().at == request.time;
+      allow update, delete: if false;
+    }
+
+    // 練習モードのタイムアタック：条件ごとのコレクション ta_<距離>_<回り>_<起伏>_<グレード>_<脚質>_<馬番>
+    // タイムは 秒速8〜20m に相当する範囲だけ受け付ける
+    match /{col}/{id} {
+      allow read: if col.matches('ta_[0-9A-Za-z_]+');
+      allow create: if col.matches('ta_[0-9A-Za-z_]+')
+        && d().keys().hasOnly(['name', 'time', 'D', 'V', 'T', 'P', 'K', 'at', 'ver'])
+        && d().keys().hasAll(['name', 'time', 'D', 'V', 'T', 'P', 'K', 'at'])
+        && nameOk() && statsOk()
+        && d().D is int && d().D >= 1200 && d().D <= 3000
+        && d().time is number && d().time >= d().D * 0.05 && d().time <= d().D * 0.125
+        && d().at == request.time;
+      allow update, delete: if false;
+    }
+  }
+}

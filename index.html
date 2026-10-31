@@ -163,6 +163,10 @@ h2{font-size:14px;margin:0 0 10px;letter-spacing:.06em;display:flex;justify-cont
 .pod.me .pn{color:var(--gold)}
 .led td.sc{color:var(--gold)}
 .led td.ns{color:#6f7a73}
+.rktabs{margin-top:10px}
+.board .seg button{background:#1a201c;color:#e8ece9;border-color:#3a433d}
+.board .seg button[aria-pressed=true]{background:var(--gold);color:var(--gold-ink);border-color:var(--gold)}
+.led td.dt{font:600 13px var(--f-num);color:#8c968f}
 .gbadge{display:inline-block;font:700 13px var(--f-num);padding:1px 7px;border-radius:4px;color:#fff;vertical-align:4px;margin-left:8px;letter-spacing:.04em}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 input[type=text]{font:700 18px var(--f-body);padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);flex:1;min-width:0}
@@ -330,6 +334,7 @@ table{border-collapse:collapse;width:100%;font-size:13.5px}
     <section class="modes">
       <button class="mode" id="mBC"><b>朝凪ブリーダーズカップ</b><span>新馬からGⅠまで6戦のポイント制。1着10点〜5着1点。相手15頭は全戦同じで、グレードが上がるごとに強くなる。毎レース後に成長ポイント10を振り分ける。</span><small id="bestRec"></small></button>
       <button class="mode" id="mPR"><b>練習モード</b><span>距離・コース・相手を選んで1レース。同じ条件なら毎回同じ展開になる。</span></button>
+      <button class="btn" id="mRank" hidden>ランキングを見る</button>
     </section>
   </div>
 </div>
@@ -449,6 +454,20 @@ table{border-collapse:collapse;width:100%;font-size:13.5px}
   </div>
 </div>
 
+<!-- Ranking -->
+<div class="screen" id="scrRank" hidden>
+  <div class="panel board">
+    <section>
+      <div class="eyebrow">朝凪3D競馬 ・ みんなのランキング</div>
+      <div class="verdict">ランキング</div>
+      <div class="seg rktabs" id="rkTabs"></div>
+      <p class="note" id="rkNote"></p>
+    </section>
+    <section class="tblwrap"><table class="led"><thead id="rkHead"></thead><tbody id="rkBody"></tbody></table></section>
+    <section><div class="btns"><button class="btn" id="rkBack">戻る</button></div></section>
+  </div>
+</div>
+
 <!-- Final standings -->
 <div class="screen" id="scrFinal" hidden>
   <div class="panel board">
@@ -460,7 +479,7 @@ table{border-collapse:collapse;width:100%;font-size:13.5px}
       <div class="facts" id="finFacts"></div>
     </section>
     <section class="tblwrap"><table class="led"><thead id="finHead"></thead><tbody id="finBody"></tbody></table><p class="note">着順の金色は得点圏（5着以内）。</p></section>
-    <section><div class="btns"><button class="btn" id="finTitle">タイトルへ</button><button class="btn primary" id="finAgain">新しい馬で挑戦</button></div></section>
+    <section><div class="btns"><button class="btn primary" id="finReg" hidden>ランキングに登録</button><button class="btn" id="finTitle">タイトルへ</button><button class="btn primary" id="finAgain">新しい馬で挑戦</button></div></section>
   </div>
 </div>
 
@@ -831,7 +850,7 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
 function hashStr(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
 // practice mode: every random draw comes from a seed made of the chosen conditions
 function seed(tag){RNG=G.mode==='practice'?mulberry(hashStr(tag+'|'+pc.D+'|'+pc.side+'|'+pc.terrain+(tag==='course'||tag==='scene'?'':'|'+pc.grade+'|'+pc.mix+'|'+pc.gate))):Math.random}
-function show(id){['#scrTitle','#scrSetup','#scrGrow','#scrCard','#scrResult','#scrFinal'].forEach(s=>$(s).hidden=s!==id);$('#hud').hidden=id!==null}
+function show(id){['#scrTitle','#scrSetup','#scrGrow','#scrCard','#scrResult','#scrFinal','#scrRank'].forEach(s=>$(s).hidden=s!==id);$('#hud').hidden=id!==null}
 const DEMO=[['スタート','ゲートインするとバーの上をカーソルが動く。黄色でタップすると好スタート、緑で普通、赤は出遅れ。'],
   ['折り合い','縮んでくる輪が金色の帯に入った瞬間にタップ。成功中はスタミナ消費が減る。連続で成功するとテンポが上がる。'],
   ['追う・控える','奥へスワイプで追う（長いほど強く、だんだん弱まる）。手前へスワイプで控える（スタミナ節約、次に変えるまで続く）。'],
@@ -867,7 +886,7 @@ function buildPracticeCourse(){G.grade=pc.grade;seed('course');C=genCourse({D:pc
 $('#toCard').onclick=()=>{saveCfg();if(G.mode==='bc'){bc.alloc={...cfg.alloc};bc.roster=makeRoster();prepBC()}else prepPractice()};
 function prepBC(){G.grade=bc.round;RNG=Math.random;C=genCourse({D:bc.dists[bc.round]});buildCourse();makeField(bc.alloc,0);renderCard();G.state='card';show('#scrCard')}
 function nextBC(){bc.round++;prepBC()}
-function showFinal(){G.state='final';const st=standings(),mi=st.findIndex(x=>x.e.me)+1,me=bc.roster[0],wins=me.fin.filter(x=>x===1).length;
+function showFinal(){G.state='final';const fr=$('#finReg');fr.hidden=!RANK.on;fr.disabled=false;fr.textContent='ランキングに登録';const st=standings(),mi=st.findIndex(x=>x.e.me)+1,me=bc.roster[0],wins=me.fin.filter(x=>x===1).length;
   $('#finVerdict').innerHTML=mi===1?`優勝 <span>${cfg.name}</span>`:`${cfg.name} <span>最終${mi}位</span>`;
   $('#finNote').textContent=mi===1?`合計${me.pts}点で朝凪ブリーダーズカップを制覇。`:`優勝は${st[0].name}（${st[0].e.pts}点）。あなたとの差は${st[0].e.pts-me.pts}点。`;
   const pod=k=>{const x=st[k];return x?`<div class="pod p${k+1}${x.e.me?' me':''}"><div class="pl">${k+1}</div><div class="pn">${x.name}</div><div class="pp">${x.e.pts}点</div></div>`:''};
@@ -876,7 +895,52 @@ function showFinal(){G.state='final';const st=standings(),mi=st.findIndex(x=>x.e
   $('#finHead').innerHTML=`<tr><th>順位</th><th>馬名</th><th>合計</th>${GRADES.map((g,i)=>`<th>${g.badge}<br>${bc.dists[i]}</th>`).join('')}</tr>`;
   $('#finBody').innerHTML=st.map((x,k)=>`<tr class="${x.e.me?'me':''}"><td class="pos">${k+1}</td><td class="nm">${x.name}</td><td>${x.e.pts}</td>${x.e.fin.map(f=>`<td class="${f<=5?'sc':'ns'}">${f}</td>`).join('')}</tr>`).join('');
   show('#scrFinal')}
-$('#finTitle').onclick=()=>goTitle();$('#finAgain').onclick=()=>startBC();
+$('#finTitle').onclick=()=>goTitle();
+
+/* ================= Ranking (Firestore REST; Claude上では外部通信できないので非表示) ================= */
+const RANK={on:!/claude\.ai|claudeusercontent|anthropic/.test(location.hostname)&&location.protocol.startsWith('http'),
+  key:'AIzaSyCU3X_x8u7MX_MGiIWa7u_5cLHtdErBeYw',base:'https://firestore.googleapis.com/v1/projects/asanagi-keiba/databases/(default)/documents'};
+const NG=['死ね','しね','殺す','ころす','ちんこ','まんこ','うんこ','セックス','fuck','shit','sex'];
+const fsVal=v=>Array.isArray(v)?{arrayValue:{values:v.map(fsVal)}}:typeof v==='string'?{stringValue:v}:Number.isInteger(v)?{integerValue:String(v)}:{doubleValue:v};
+const fsGet=f=>f?('integerValue' in f?+f.integerValue:'doubleValue' in f?f.doubleValue:'stringValue' in f?f.stringValue:'timestampValue' in f?f.timestampValue:f.arrayValue?(f.arrayValue.values||[]).map(fsGet):null):null;
+const rid=()=>Array.from(crypto.getRandomValues(new Uint8Array(15)),b=>'abcdefghijklmnopqrstuvwxyz0123456789'[b%36]).join('');
+async function fsCreate(col,data){const id=rid();const body={writes:[{update:{name:`projects/asanagi-keiba/databases/(default)/documents/${col}/${id}`,fields:Object.fromEntries(Object.entries(data).map(([k,v])=>[k,fsVal(v)]))},updateTransforms:[{fieldPath:'at',setToServerValue:'REQUEST_TIME'}],currentDocument:{exists:false}}]};
+  const r=await fetch(`${RANK.base}:commit?key=${RANK.key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error('HTTP '+r.status);return id}
+async function fsTop(col,field,dir,limit){const body={structuredQuery:{from:[{collectionId:col}],orderBy:[{field:{fieldPath:field},direction:dir}],limit}};
+  const r=await fetch(`${RANK.base}:runQuery?key=${RANK.key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error('HTTP '+r.status);
+  return (await r.json()).filter(x=>x.document).map(x=>{const o={id:x.document.name.split('/').pop()};for(const[k,v]of Object.entries(x.document.fields||{}))o[k]=fsGet(v);return o})}
+const taCol=()=>`ta_${pc.D}_${pc.side>0?'L':'R'}_${pc.terrain}_${pc.grade}_${pc.mix}_${pc.gate}`;
+const taLabel=()=>`芝${pc.D}m・${pc.side>0?'左':'右'}回り・${{flat:'平坦',std:'標準',hilly:'起伏大'}[pc.terrain]}・相手${GRADES[pc.grade].badge}・${{std:'バランス',front:'先行多め',back:'差し多め'}[pc.mix]}・${pc.gate}番`;
+function nameOk(n){if(!n||n.length>9)return '馬名は1〜9文字で登録できる。';const l=n.toLowerCase();if(NG.some(w=>l.includes(w)))return 'この馬名は登録できない。';return ''}
+function cooldown(){try{const t=+localStorage.getItem('asanagi-rank-last')||0;return Math.max(0,30-Math.floor((Date.now()-t)/1000))}catch(e){return 0}}
+function markSent(){try{localStorage.setItem('asanagi-rank-last',String(Date.now()))}catch(e){}}
+async function submitBC(){const btn=$('#finReg');const err=nameOk(cfg.name);if(err){btn.textContent=err;return}const cd=cooldown();if(cd){btn.textContent=`${cd}秒後に登録できる`;return}
+  const me=bc.roster[0];btn.disabled=true;btn.textContent='登録中…';
+  try{const id=await fsCreate('bc',{name:cfg.name,pts:me.pts,fin:me.fin.slice(0,6),wins:me.fin.filter(x=>x===1).length,V:bc.alloc.V,T:bc.alloc.T,P:bc.alloc.P,K:bc.alloc.K,ver:1});markSent();btn.textContent='登録した';openRank('bc',id,'#scrFinal')}
+  catch(e){btn.disabled=false;btn.textContent='登録できなかった（もう一度押す）'}}
+async function submitTA(e){const btn=e&&e.currentTarget;const p=G.player;const err=nameOk(cfg.name);if(err){if(btn)btn.textContent=err;return}const cd=cooldown();if(cd){if(btn)btn.textContent=`${cd}秒後に登録できる`;return}
+  if(btn){btn.disabled=true;btn.textContent='登録中…'}
+  try{const id=await fsCreate(taCol(),{name:cfg.name,time:Math.round(p.ft*100)/100,D:pc.D,V:p.V,T:p.T,P:p.P,K:p.K,ver:1});markSent();if(btn)btn.textContent='登録した';openRank('ta',id,'#scrResult')}
+  catch(e2){if(btn){btn.disabled=false;btn.textContent='登録できなかった（もう一度押す）'}}}
+let rkBackTo='#scrTitle',rkTab='bc',rkHi=null;
+function openRank(tab,hi,back){rkTab=tab||'bc';rkHi=hi||null;if(back)rkBackTo=back;show('#scrRank');renderRankTabs();loadRank()}
+function renderRankTabs(){const el=$('#rkTabs');el.innerHTML='';[['bc','ブリーダーズカップ'],['ta','タイムアタック']].forEach(([k,t])=>{const b=document.createElement('button');b.textContent=t;b.setAttribute('aria-pressed',k===rkTab);b.onclick=()=>{rkTab=k;rkHi=null;renderRankTabs();loadRank()};el.appendChild(b)})}
+const fmtDate=t=>{if(!t)return '';const d=new Date(t);return `${d.getMonth()+1}/${d.getDate()}`};
+async function loadRank(){const note=$('#rkNote'),hd=$('#rkHead'),bd=$('#rkBody');bd.innerHTML='';note.textContent='読み込み中…';
+  try{if(rkTab==='bc'){const rows=(await fsTop('bc','pts','DESCENDING',100)).sort((a,b)=>b.pts-a.pts||b.wins-a.wins||String(a.at).localeCompare(String(b.at))).slice(0,50);
+      note.textContent='6戦の合計点。同点は1着の回数が多い順、さらに同じなら先に登録した順。';
+      hd.innerHTML='<tr><th>順位</th><th>馬名</th><th>合計</th><th>各戦</th><th>能力 V/T/根/気</th><th>日付</th></tr>';
+      bd.innerHTML=rows.map((r,i)=>`<tr class="${r.id===rkHi?'me':''}"><td class="pos">${i+1}</td><td class="nm"></td><td>${r.pts}</td><td>${(r.fin||[]).join('-')}</td><td>${r.V}/${r.T}/${r.P}/${r.K}</td><td class="dt">${fmtDate(r.at)}</td></tr>`).join('');
+      [...bd.querySelectorAll('td.nm')].forEach((td,i)=>td.textContent=rows[i].name);if(!rows.length)note.textContent='まだ登録がない。6戦を走り切って最初の登録者になろう。'}
+    else{const rows=await fsTop(taCol(),'time','ASCENDING',50);note.textContent=`条件：${taLabel()}（練習モードで選んだ条件。条件を変えると別のランキング）`;
+      hd.innerHTML='<tr><th>順位</th><th>馬名</th><th>タイム</th><th>能力 V/T/根/気</th><th>日付</th></tr>';
+      bd.innerHTML=rows.map((r,i)=>`<tr class="${r.id===rkHi?'me':''}"><td class="pos">${i+1}</td><td class="nm"></td><td>${fmtT(r.time)}</td><td>${r.V}/${r.T}/${r.P}/${r.K}</td><td class="dt">${fmtDate(r.at)}</td></tr>`).join('');
+      [...bd.querySelectorAll('td.nm')].forEach((td,i)=>td.textContent=rows[i].name);if(!rows.length)note.textContent=`条件：${taLabel()}。まだ登録がない。`}}
+  catch(e){note.textContent='ランキングを読み込めなかった。通信状況を確認して、もう一度開いてほしい。'}}
+$('#finReg').onclick=submitBC;
+$('#rkBack').onclick=()=>{show(rkBackTo)};
+$('#mRank').onclick=()=>openRank('bc',null,'#scrTitle');
+$('#mRank').hidden=!RANK.on;$('#finAgain').onclick=()=>startBC();
 function prepPractice(){buildPracticeCourse();seed('field');makeField({...cfg.alloc},pc.gate);RNG=Math.random;renderCard();G.state='card';show('#scrCard')}
 // growth after each BC win
 let grow=null;
@@ -1037,7 +1101,7 @@ function showResult(){G.state='result';const r=ranking();const p=G.player;const 
       if(!best||mi<best.rank||(mi===best.rank&&mp>best.pts)){best={rank:mi,pts:mp};saveBest()}
       btns=[['累計結果発表へ',showFinal,1]]}
     $('#standBody').innerHTML=st.map((x,k)=>`<tr class="${x.e.me?'me':''}"><td class="pos">${k+1}</td><td class="nm">${x.name}</td><td>${x.e.pts}</td><td>${x.e.fin.join('-')}</td></tr>`).join('')}
-  else{note=rank===1?'1着。':(hint||'能力の配分や追い出しのタイミングを変えて試してみよう。');btns=[['タイトルへ',goTitle,0],['条件を変える',openSetup,0],['同じ条件でもう一度',prepPractice,1]]}
+  else{note=rank===1?'1着。':(hint||'能力の配分や追い出しのタイミングを変えて試してみよう。');btns=[['タイトルへ',goTitle,0],['条件を変える',openSetup,0],['同じ条件でもう一度',prepPractice,1]];if(RANK.on)btns.unshift(['タイムを登録',submitTA,0])}
   $('#verdictNote').textContent=note;$('#standSec').hidden=!(isBC&&bc.round<5);
   const best3=Math.min(...r.map(h=>h.ft-h.t3));const SQ={just:'好スタート',safe:'普通',late:'出遅れ'};
   $('#facts').innerHTML=`<div>勝ちタイム<b>${fmtT(r[0].ft)}</b></div>${G.t1000&&C.D>=1400?`<div>前半1000m<b>${fmtT(G.t1000)}</b></div>`:''}<div>あなたの上がり3F<b>${(p.ft-p.t3).toFixed(1)}</b></div><div>スタート<b>${SQ[G.startQ]||'-'}</b></div><div>単勝<b>${p.odds.toFixed(1)}</b></div>`;
