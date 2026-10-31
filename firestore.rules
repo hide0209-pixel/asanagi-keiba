@@ -33,7 +33,7 @@ service cloud.firestore {
         && d().keys().hasOnly(['name', 'time', 'D', 'V', 'T', 'P', 'K', 'at', 'ver'])
         && d().keys().hasAll(['name', 'time', 'D', 'V', 'T', 'P', 'K', 'at'])
         && nameOk() && statsOk()
-        && d().D is int && d().D >= 1200 && d().D <= 3000
+        && d().D is int && d().D >= 1000 && d().D <= 3000
         && d().time is number && d().time >= d().D * 0.05 && d().time <= d().D * 0.125
         && d().at == request.time;
       allow update, delete: if false;

@@ -478,7 +478,7 @@ table{border-collapse:collapse;width:100%;font-size:13.5px}
     <section>
       <div class="eyebrow">管理用 ・ CPUの記録を作成</div>
       <div class="verdict">CPU記録の登録</div>
-      <p class="note" id="cpuNote">CPU馬でブリーダーズカップ6戦を30回、タイムアタックを8距離×5回シミュレーションして、馬名の頭に「CPU・」を付けてランキングに登録する。書き込みは合計70件。</p>
+      <p class="note" id="cpuNote">CPU馬でブリーダーズカップ6戦を30回、タイムアタックを9距離×5回シミュレーションして、馬名の頭に「CPU・」を付けてランキングに登録する。書き込みは合計75件。</p>
       <p class="note" id="cpuStat" style="color:#fff;font-size:14px"></p>
     </section>
     <section><div class="btns"><button class="btn" id="cpuCancel">やめる</button><button class="btn primary" id="cpuGo">開始する</button></div></section>
@@ -551,7 +551,9 @@ const DISTS=[1200,1400,1600,1800,2000,2200,2400,3000];
 let C=null, raceNo=10;
 function genCourse(o={}){
   for(let tries=0;tries<200;tries++){
-    const Ls=Math.round(rand(560,640)),R=Math.round(rand(85,125)),BOW=Math.round(rand(0,38)),side=o.side||(rnd()<.5?1:-1),D=o.D||DISTS[(rnd()*DISTS.length)|0],ter=o.terrain||'random';
+    const straight=!!o.straight,ter=o.terrain||'random';
+    // タイムアタック用：コーナーをきつく（R85〜92）。直線1000mは1300mの長い直線を持つ周回の一部を使う
+    const Ls=straight?1300:Math.round(rand(560,640)),R=straight?110:ter==='ta'?Math.round(rand(85,92)):Math.round(rand(85,125)),BOW=straight?0:Math.round(rand(0,38)),side=straight?1:(o.side||(rnd()<.5?1:-1)),D=o.D||DISTS[(rnd()*DISTS.length)|0];
     const raw=[];const st=.5,nT=Math.ceil(Math.PI*R/st);
     for(let x=-Ls/2;x<Ls/2;x+=st)raw.push([x,0]);
     for(let i=0;i<nT;i++){const a=Math.PI*i/nT;raw.push([Ls/2+R*Math.sin(a),-R+R*Math.cos(a)])}
@@ -561,7 +563,8 @@ function genCourse(o={}){
     const cum=[0];let L=0;for(let i=0;i<raw.length;i++){const a=raw[i],b=raw[(i+1)%raw.length];L+=Math.hypot(b[0]-a[0],b[1]-a[1]);cum.push(L)}
     const sB=Ls+Math.PI*R,BL=L-2*Math.PI*R-Ls;
     let sF=null,startS=null;
-    for(let k=0;k<25;k++){const f=Math.min(rand(470,530),Ls-40); /* ゴールまでの直線は約500m */const s0=mod(f-D,L);if((s0>15&&s0<Ls-35)||(s0>sB+15&&s0<sB+BL-35)){sF=f;startS=s0;break}}
+    if(straight){sF=D+100;startS=100}
+    else for(let k=0;k<25;k++){const f=Math.min(rand(470,530),Ls-40); /* ゴールまでの直線は約500m */const s0=mod(f-D,L);if((s0>15&&s0<Ls-35)||(s0>sB+15&&s0<sB+BL-35)){sF=f;startS=s0;break}}
     // 直線上にスタートを置けない距離は引き込み線（直線をコースの外へ延長した発走路）から。合流点は4コーナー出口(s=0)か2コーナー出口(s=sB)
     let chute=null;
     if(sF==null){let f=Math.min(rand(470,530),Ls-40);
@@ -581,15 +584,18 @@ function genCourse(o={}){
     if(ter==='flat'){E=rand(.2,.6);kyu=0}
     else if(ter==='std'){E=rand(1.2,2.8);kyu=rnd()<.5?rand(1,2):0}
     else if(ter==='hilly'){E=rand(3.5,5);kyu=rand(1.8,2.6)}
-    else{E=rnd()<.15?rand(.3,1):rand(1.2,5);kyu=rnd()<.65?rand(1,2.6):0}const ka=Math.max(8,sF-rand(110,190)),kb=ka+rand(55,95);
+    else if(ter==='ta'){E=rand(3.8,4.6);kyu=rand(2.2,2.6)}
+    else{E=rnd()<.15?rand(.3,1):rand(1.2,5);kyu=rnd()<.65?rand(1,2.6):0}
+    let ka=ter==='ta'?Math.max(8,sF-rand(230,270)):Math.max(8,sF-rand(110,190)),kb=ka+(ter==='ta'?rand(80,100):rand(55,95));
+    if(straight){E=.25;kyu=1.6;ka=sF-320;kb=sF-120} // 直線1000m：ほぼ平坦、ゴール前300〜120mに緩い上り
     for(let i=0;i<N;i++){const s=i*SP;H[i]=E*(four(s)-fmin)/(fmax-fmin)+(kyu?kyu*ss(ka,kb,s)-kyu*ss(Ls+30,sB+BL*.7,s):0)}
     let hmin=1e9,hmax=-1e9;for(let i=0;i<N;i++){hmin=Math.min(hmin,H[i]);hmax=Math.max(hmax,H[i])}
     for(let i=0;i<N;i++)H[i]-=hmin;
     let maxSl=0;for(let i=0;i<N;i++){const a=(i-1+N)%N,b=(i+1)%N;SL[i]=(H[b]-H[a])/(2*SP);maxSl=Math.max(maxSl,Math.abs(SL[i]))}
-    if(maxSl>.055)continue;
+    if(maxSl>(ter==='ta'?.065:.055))continue;
     let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(let i=0;i<N;i++){x0=Math.min(x0,PX[i]);x1=Math.max(x1,PX[i]);z0=Math.min(z0,PZ[i]);z1=Math.max(z1,PZ[i])}
     if(chute){const J=Math.round(chute.J/SP)%N;for(const off of [0,TW]){const ex=PX[J]-TX[J]*chute.len+OX[J]*off,ez=PZ[J]-TZ[J]*chute.len+OZ[J]*off;x0=Math.min(x0,ex);x1=Math.max(x1,ex);z0=Math.min(z0,ez);z1=Math.max(z1,ez)}}
-    return {chute,Ls,R,BOW,side,D,L,N,SP,sB,BL,sF,startS,PX,PZ,TX,TZ,OX,OZ,K,H,SL,range:hmax-hmin,kyu,ka,kb,maxSl,
+    return {straight,chute,Ls,R,BOW,side,D,L,N,SP,sB,BL,sF,startS,PX,PZ,TX,TZ,OX,OZ,K,H,SL,range:hmax-hmin,kyu,ka,kb,maxSl,
       bounds:{x0:x0-TW-6,x1:x1+TW+6,z0:z0-TW-6,z1:z1+TW+6}}
   }
   return genCourse(o);
@@ -794,7 +800,7 @@ function drawRadar(){const a=cfg.alloc;const c=60,r=46,n=STATS.length;const ax=S
   s+=`<polygon points="${ax.map(([x,y,,v])=>`${c+x*r*v/100},${c+y*r*v/100}`).join(' ')}" fill="rgba(29,106,60,.28)" stroke="var(--turf)" stroke-width="2"/>`;
   s+=ax.map(([x,y,l])=>`<text x="${c+x*(r+6)}" y="${c+y*(r+6)+(y>.5?8:y<-.5?-2:3)}" font-size="9" font-weight="700" fill="var(--muted)" text-anchor="${x>.2?'start':x<-.2?'end':'middle'}">${l}</text>`).join('');
   $('#radar').innerHTML=s}
-function chipsHTML(){const c=C;return `<span class="chip turf">芝${c.D.toLocaleString()}m</span><span class="chip">${c.side>0?'左回り':'右回り'}</span><span class="chip">16頭立て</span><span class="chip">高低差 ${c.range.toFixed(1)}m</span><span class="chip">1周 ${Math.round(c.L).toLocaleString()}m</span><span class="chip">直線 ${Math.round(c.sF)}m</span>`}
+function chipsHTML(){const c=C;return `<span class="chip turf">芝${c.D.toLocaleString()}m${c.straight?'（直線）':''}</span><span class="chip">${c.straight?'直線コース':c.side>0?'左回り':'右回り'}</span><span class="chip">16頭立て</span><span class="chip">高低差 ${c.range.toFixed(1)}m</span><span class="chip">1周 ${Math.round(c.L).toLocaleString()}m</span><span class="chip">直線 ${Math.round(c.sF)}m</span>`}
 function drawProfile(sel){const c=C;const W=360,X0=34,X1=350,Y0=96,Y1=18;const hmax=Math.max(2,Math.ceil(c.range+.5));const xs=p=>X0+(X1-X0)*p/c.D,ys=h=>Y0-(Y0-Y1)*h/hmax;
   const pts=[];let pk={p:0,h:-1};for(let p=0;p<=c.D;p+=Math.max(4,c.D/200)){const h=posAt(p).h;pts.push([xs(p).toFixed(1),ys(h).toFixed(1)]);if(h>pk.h)pk={p,h}}
   let s=`<path d="M${X0},${Y0} L${pts.map(p=>p.join(',')).join(' L')} L${X1},${Y0} Z" fill="var(--turf-soft)"/><path d="M${pts.map(p=>p.join(',')).join(' L')}" fill="none" stroke="var(--turf)" stroke-width="2"/>`;
@@ -867,8 +873,9 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
 function hashStr(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
 // practice mode: every random draw comes from a seed made of the chosen conditions
 // タイムアタック：距離以外は固定（左回り・標準の起伏・相手は条件クラス・バランス）、枠順は毎回抽選
-let taD=1800;try{const v=+localStorage.getItem('asanagi-taD');if(DISTS.includes(v))taD=v}catch(e){}
-const TA_FIX={side:1,terrain:'std',grade:1,mix:'std'};
+const TA_DISTS=[1000,...DISTS];
+let taD=1800;try{const v=+localStorage.getItem('asanagi-taD');if(TA_DISTS.includes(v))taD=v}catch(e){}
+const TA_FIX={side:1,terrain:'ta',grade:5,mix:'std'}; // 相手は常にGⅠ級、坂がきついコース
 function cond(){return G.mode==='ta'?{D:taD,...TA_FIX,gate:G.taGate||8}:pc}
 function seed(tag){const c=cond();RNG=(G.mode==='practice'||G.mode==='ta')?mulberry(hashStr((G.mode==='ta'?'TA|':'')+tag+'|'+c.D+'|'+c.side+'|'+c.terrain+(tag==='course'||tag==='scene'?'':'|'+c.grade+'|'+c.mix+'|'+c.gate))):Math.random}
 function show(id){['#scrTitle','#scrSetup','#scrGrow','#scrCard','#scrResult','#scrFinal','#scrRank','#scrCpu'].forEach(s=>$(s).hidden=s!==id);$('#hud').hidden=id!==null}
@@ -892,21 +899,21 @@ function openSetup(){G.state='setup';const isBC=G.mode==='bc';
   const isTA=G.mode==='ta';
   $('#setupEyebrow').textContent=isBC?'朝凪ブリーダーズカップ ・ 出走馬の登録':isTA?'タイムアタック ・ 1レース':'練習モード ・ 1レース';
   $('#setupTitle').textContent=isBC?'6戦のポイントで頂点へ':isTA?'タイムアタック':'練習レース';
-  $$('#secCond .prx').forEach(e=>e.hidden=isTA);$('#condNote').textContent=isTA?'選べるのは距離だけ。コース（左回り・標準の起伏）と相手（条件クラス）は距離ごとに固定、枠順は毎回抽選。':'';
+  $$('#secCond .prx').forEach(e=>e.hidden=isTA);$('#condNote').textContent=isTA?'選べるのは距離だけ。相手は常にGⅠ級。周回コースはコーナーがきつく、ゴール前に急坂がある（1000mは直線コース）。コースは距離ごとに固定、枠順は毎回抽選。':'';
   $('#toCard').textContent=isBC?'この馬で挑戦する':'出馬表へ';
   if(isBC)renderSched();else{renderCond();buildPracticeCourse()}
   renderCoat();renderStats();show('#scrSetup')}
 function renderSched(){$('#sched').innerHTML=GRADES.map((g,i)=>`<li class="${bc.round===i?'now':bc.round>i?'done':''}"><span>第${i+1}戦</span><span><span class="gbadge" style="background:${g.col};margin:0;vertical-align:0">${g.badge}</span></span><span>${g.name}</span><span class="d">芝${bc.dists[i]}m</span></li>`).join('')}
 function seg(sel,opts,val,on,after){const el=$(sel);el.innerHTML='';opts.forEach(([v,t])=>{const b=document.createElement('button');b.textContent=t;b.setAttribute('aria-pressed',v===val);b.onclick=()=>{on(v);if(after)after();else{savePc();renderCond();buildPracticeCourse()}};el.appendChild(b)})}
 function renderCond(){
-  if(G.mode==='ta'){seg('#cD',DISTS.map(d=>[d,d+'m']),taD,v=>{taD=v;try{localStorage.setItem('asanagi-taD',String(v))}catch(e){}});return}
+  if(G.mode==='ta'){seg('#cD',TA_DISTS.map(d=>[d,d===1000?'1000m直線':d+'m']),taD,v=>{taD=v;try{localStorage.setItem('asanagi-taD',String(v))}catch(e){}});return}
   seg('#cD',DISTS.map(d=>[d,d+'m']),pc.D,v=>pc.D=v);
   seg('#cSide',[[1,'左回り'],[-1,'右回り']],pc.side,v=>pc.side=v);
   seg('#cTer',[['flat','平坦'],['std','標準'],['hilly','起伏大']],pc.terrain,v=>pc.terrain=v);
   seg('#cGr',GRADES.map((g,i)=>[i,g.badge]),pc.grade,v=>pc.grade=v);
   seg('#cMix',[['std','バランス'],['front','逃げ・先行多め'],['back','差し・追込多め']],pc.mix,v=>pc.mix=v);
   seg('#cGate',Array.from({length:16},(_,i)=>[i+1,String(i+1)]),pc.gate,v=>pc.gate=v)}
-function buildPracticeCourse(){const c=cond();G.grade=c.grade;seed('course');C=genCourse({D:c.D,side:c.side,terrain:c.terrain});seed('scene');buildCourse();
+function buildPracticeCourse(){const c=cond();G.grade=c.grade;seed('course');C=genCourse({D:c.D,side:c.side,terrain:c.terrain,straight:G.mode==='ta'&&c.D===1000});seed('scene');buildCourse();
   $$('#secPreview .courseChips').forEach(e=>e.innerHTML=chipsHTML());drawProfile('#profile');if(G.horses.length)resetRace()}
 $('#toCard').onclick=()=>{saveCfg();if(G.mode==='bc'){bc.alloc={...cfg.alloc};bc.roster=makeRoster();prepBC()}else prepPractice()};
 function prepBC(){G.grade=bc.round;RNG=Math.random;C=genCourse({D:bc.dists[bc.round]});buildCourse();makeField(bc.alloc,0);renderCard();G.state='card';show('#scrCard')}
@@ -935,7 +942,7 @@ async function fsTop(col,field,dir,limit){const body={structuredQuery:{from:[{co
   const r=await fetch(`${RANK.base}:runQuery?key=${RANK.key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error('HTTP '+r.status);
   return (await r.json()).filter(x=>x.document).map(x=>{const o={id:x.document.name.split('/').pop()};for(const[k,v]of Object.entries(x.document.fields||{}))o[k]=fsGet(v);return o})}
 let rkD=1800;const taCol=D=>`ta_${D}`;
-const taLabel=D=>`芝${D}m・左回り・標準の起伏・相手${GRADES[TA_FIX.grade].badge}`;
+const taLabel=D=>D===1000?`芝1000m直線・相手${GRADES[TA_FIX.grade].badge}級`:`芝${D}m・左回り・坂のきついコース・相手${GRADES[TA_FIX.grade].badge}級`;
 function nameOk(n){if(!n||n.length>9)return '馬名は1〜9文字で登録できる。';const l=n.toLowerCase();if(NG.some(w=>l.includes(w)))return 'この馬名は登録できない。';return ''}
 function cooldown(){try{const t=+localStorage.getItem('asanagi-rank-last')||0;return Math.max(0,30-Math.floor((Date.now()-t)/1000))}catch(e){return 0}}
 function markSent(){try{localStorage.setItem('asanagi-rank-last',String(Date.now()))}catch(e){}}
@@ -949,7 +956,7 @@ async function submitTA(e){const btn=e&&e.currentTarget;const p=G.player;const e
   catch(e2){if(btn){btn.disabled=false;btn.textContent='登録できなかった（もう一度押す）'}}}
 let rkBackTo='#scrTitle',rkTab='bc',rkHi=null;
 function openRank(tab,hi,back){rkTab=tab||'bc';rkHi=hi||null;if(back)rkBackTo=back;show('#scrRank');renderRankTabs();loadRank()}
-function renderRankTabs(){const dd=$('#rkDist');dd.hidden=rkTab!=='ta';dd.innerHTML='';if(rkTab==='ta')DISTS.forEach(D=>{const b=document.createElement('button');b.textContent=D+'m';b.setAttribute('aria-pressed',D===rkD);b.onclick=()=>{rkD=D;rkHi=null;renderRankTabs();loadRank()};dd.appendChild(b)});const el=$('#rkTabs');el.innerHTML='';[['bc','ブリーダーズカップ'],['ta','タイムアタック']].forEach(([k,t])=>{const b=document.createElement('button');b.textContent=t;b.setAttribute('aria-pressed',k===rkTab);b.onclick=()=>{rkTab=k;rkHi=null;renderRankTabs();loadRank()};el.appendChild(b)})}
+function renderRankTabs(){const dd=$('#rkDist');dd.hidden=rkTab!=='ta';dd.innerHTML='';if(rkTab==='ta')TA_DISTS.forEach(D=>{const b=document.createElement('button');b.textContent=D===1000?'1000直':D+'m';b.setAttribute('aria-pressed',D===rkD);b.onclick=()=>{rkD=D;rkHi=null;renderRankTabs();loadRank()};dd.appendChild(b)});const el=$('#rkTabs');el.innerHTML='';[['bc','ブリーダーズカップ'],['ta','タイムアタック']].forEach(([k,t])=>{const b=document.createElement('button');b.textContent=t;b.setAttribute('aria-pressed',k===rkTab);b.onclick=()=>{rkTab=k;rkHi=null;renderRankTabs();loadRank()};el.appendChild(b)})}
 const fmtDate=t=>{if(!t)return '';const d=new Date(t);return `${d.getMonth()+1}/${d.getDate()}`};
 async function loadRank(){const note=$('#rkNote'),hd=$('#rkHead'),bd=$('#rkBody');bd.innerHTML='';note.textContent='読み込み中…';
   try{if(rkTab==='bc'){const rows=(await fsTop('bc','pts','DESCENDING',100)).sort((a,b)=>b.pts-a.pts||b.wins-a.wins||String(a.at).localeCompare(String(b.at))).slice(0,50);
@@ -981,14 +988,14 @@ function simBC(name){bc={round:0,dists:shuffle(BC_DISTS.slice()),alloc:cpuAlloc(
     ord.forEach((h,i)=>{const e=bc.roster[h.rid];e.fin.push(i+1);if(i<5)e.pts+=PTS[i]});
     if(r<5)for(let k=0;k<GROW_PT;k++){const ks=KEYS.filter(x=>bc.alloc[x]<MAX);if(!ks.length)break;bc.alloc[ks[(Math.random()*ks.length)|0]]++}}
   const me=bc.roster[0];return {name,pts:me.pts,fin:me.fin.slice(0,6),wins:me.fin.filter(x=>x===1).length,V:bc.alloc.V,T:bc.alloc.T,P:bc.alloc.P,K:bc.alloc.K,ver:1}}
-function simTA(name){const a=cpuAlloc();G.taGate=1+((Math.random()*16)|0);const c=cond();G.grade=c.grade;seed('course');C=genCourse({D:c.D,side:c.side,terrain:c.terrain});seed('field');makeField(a,c.gate);seed('race');
+function simTA(name,al){const a=al||cpuAlloc();G.taGate=1+((Math.random()*16)|0);const c=cond();G.grade=c.grade;seed('course');C=genCourse({D:c.D,side:c.side,terrain:c.terrain,straight:c.D===1000});seed('field');makeField(a,c.gate);seed('race');
   const ord=simRace();RNG=Math.random;const p=G.player;return {name,time:Math.round(p.ft*100)/100,D:C.D,V:a.V,T:a.T,P:a.P,K:a.K,ver:1}}
 window.__simBC=simBC;window.__simTA=simTA;
 async function cpuFill(){const st=$('#cpuStat'),go=$('#cpuGo');go.disabled=true;const keepMode=G.mode,keepBc=bc,keepName=cfg.name;const used=new Set();let ok=0,ng=0;
   const pause=()=>new Promise(r=>setTimeout(r,30));
   try{for(let i=0;i<30;i++){st.textContent=`ブリーダーズカップ ${i+1}/30 をシミュレーション中…（登録成功 ${ok}・失敗 ${ng}）`;await pause();G.mode='bc';
       const rec=simBC(cpuName(used));try{await fsCreate('bc',rec);ok++}catch(e){ng++}}
-    const keepD=taD;let n=0;for(const D of DISTS)for(let i=0;i<5;i++){n++;st.textContent=`タイムアタック ${n}/40（芝${D}m）をシミュレーション中…（登録成功 ${ok}・失敗 ${ng}）`;await pause();G.mode='ta';taD=D;
+    const keepD=taD;let n=0;for(const D of TA_DISTS)for(let i=0;i<5;i++){n++;st.textContent=`タイムアタック ${n}/45（芝${D}m）をシミュレーション中…（登録成功 ${ok}・失敗 ${ng}）`;await pause();G.mode='ta';taD=D;
       const rec=simTA(cpuName(used));try{await fsCreate(taCol(D),rec);ok++}catch(e){ng++}}taD=keepD;}
   finally{G.mode=keepMode;bc=keepBc;cfg.name=keepName;RNG=Math.random;C=genCourse({});buildCourse();makeField({...cfg.alloc},1);G.state='cpu'}
   st.textContent=`完了：登録成功 ${ok}件・失敗 ${ng}件。${ng?'失敗があるときは、Firestoreのルールかデータベースの設定を確認してほしい。':''}`;go.textContent='ランキングを見る';go.disabled=false;go.onclick=()=>openRank('bc',null,'#scrTitle')}
@@ -1132,7 +1139,7 @@ function step(dt){
 function onPlayerFinish(){const p=G.player;$('#beat').hidden=true;const rank=1+G.horses.filter(h=>h.finished&&h!==p&&h.ft<p.ft).length;bigText(rank===1?'1着！':`${rank}着`,2200);$('#tapHint').hidden=true}
 function commentary(){const hs=G.horses;const lead=hs.reduce((a,b)=>b.p>a.p?b:a);const E=G.ev;const p=G.player;const D=C.D;
   if(!E.k1000&&G.t1000!=null&&D>=1400){E.k1000=1;banner(`前半1000m通過 ${fmtT(G.t1000)}`)}
-  if(!E.str&&lead.p>=D-C.sF){E.str=1;banner(`最後の直線！ 残り${Math.round(C.sF)}m${C.kyu?'、急坂が待つ':''}`)}
+  if(!E.str&&!C.straight&&lead.p>=D-C.sF){E.str=1;banner(`最後の直線！ 残り${Math.round(C.sF)}m${C.kyu?'、急坂が待つ':''}`)}
   if(!E.r600&&p.p>=D-600&&!p.finished){E.r600=1;if(p.st>p.stMax*.3)banner('残り600m、追い出しどころ')}
   if(!E.r200&&lead.p>=D-200){E.r200=1;banner(`残り200m！ 先頭は ${lead.n}番 ${lead.name}`)}
   if(p.started&&!p.finished&&p.sl>.02&&G.rt-G.lastUp>14){G.lastUp=G.rt;banner(`上り坂 ${(p.sl*100).toFixed(1)}% ・ 速度−${((1-slopeSpd(p.sl,p.P))*100).toFixed(1)}% ・ 消費×${slopeMul(p.sl,p.P).toFixed(2)}`)}}
