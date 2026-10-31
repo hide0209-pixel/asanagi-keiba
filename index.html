@@ -33,7 +33,8 @@ body{background:var(--sky);color:var(--ink);font-family:var(--f-body);overflow:h
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
   -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
 #c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none;overscroll-behavior:none}
-button{font-family:inherit;cursor:pointer}
+button{font-family:inherit;cursor:pointer;touch-action:manipulation}
+html,body,.screen,.panel,input,label{touch-action:manipulation} /* iPhoneで連続タップしても画面が拡大しないように */
 button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 
 .screen{position:fixed;inset:0;display:flex;align-items:center;pointer-events:none;
