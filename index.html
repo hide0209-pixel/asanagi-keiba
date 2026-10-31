@@ -1136,7 +1136,7 @@ function step(dt){
     else if(Math.abs(h.laneT-h.d)<.05)h.laneT=h.d}
   for(const h of hs){if(!h.started)continue;
     if(h.p<120&&!h.finished)h.v=Math.min(h.target,h.v+(4+Math.min(h.K,120)*.04)*h.boost*dt);
-    else{const r=h.target>h.v?accOf(h.P):.55;h.v+=(h.target-h.v)*(1-Math.exp(-dt*r))}
+    else{const up=h.target>h.v,r=up?accOf(h.P):.55;let dv=(h.target-h.v)*(1-Math.exp(-dt*r));if(up)dv=Math.min(dv,accOf(h.P)*1.2*dt);h.v+=dv} // 加速は最大 根性50で約1.2m/s²（控え→全開まで約3〜4秒）
     const run=h.v*dt;
     if(!h.finished)h.st-=dpm(h,h.v,h.sl)*run*(h.me&&G.rh&&G.rh.active?1-G.rh.save:1)*(h.draft?.87:1)*(h.me&&h.st<=0?1+2*Math.max(0,h.lvl||0):1); // スリップストリームで13%節約。バテた後に追うと借金が最大3倍の速さで増える
     if(h.me&&!h.finished&&(h.lvl||0)<-.05&&h.st<h.stMax)h.st=Math.min(h.stMax,h.st+run*.004*(.5+Math.min(h.T,100)/100)*(-h.lvl)); // 控えて息を入れる：スタミナ50・全開で控えて200mで約0.8回復
